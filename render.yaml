@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: targel-analiz-dashboard
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build && npx prisma generate
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: FACEBOOK_ACCESS_TOKEN
+        sync: false
+      - key: AMO_CLIENT_ID
+        sync: false
+      - key: AMO_CLIENT_SECRET
+        sync: false
+      - key: AMO_REDIRECT_URI
+        sync: false
+      - key: AMO_SUBDOMAIN
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true

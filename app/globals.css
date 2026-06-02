@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 24% 97%;
+  --foreground: 220 18% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 18% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 18% 10%;
+  --primary: 220 84% 52%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 22% 93%;
+  --secondary-foreground: 220 16% 20%;
+  --muted: 210 20% 94%;
+  --muted-foreground: 215 10% 42%;
+  --accent: 38 92% 92%;
+  --accent-foreground: 34 82% 24%;
+  --destructive: 3 71% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 18% 88%;
+  --input: 214 18% 88%;
+  --ring: 220 84% 52%;
+}
+
+.dark {
+  --background: 220 18% 8%;
+  --foreground: 210 24% 94%;
+  --card: 220 16% 12%;
+  --card-foreground: 210 24% 94%;
+  --popover: 220 16% 12%;
+  --popover-foreground: 210 24% 94%;
+  --primary: 213 94% 68%;
+  --primary-foreground: 220 18% 8%;
+  --secondary: 220 14% 18%;
+  --secondary-foreground: 210 24% 92%;
+  --muted: 220 14% 18%;
+  --muted-foreground: 215 12% 68%;
+  --accent: 38 56% 20%;
+  --accent-foreground: 38 88% 84%;
+  --destructive: 0 72% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 12% 22%;
+  --input: 220 12% 22%;
+  --ring: 213 94% 68%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: linear-gradient(180deg, hsl(210 28% 98%) 0%, hsl(var(--background)) 42%, hsl(210 20% 96%) 100%);
+  color: hsl(var(--foreground));
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.dark body {
+  background: linear-gradient(180deg, hsl(220 18% 10%) 0%, hsl(var(--background)) 48%, hsl(220 16% 7%) 100%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.chart-grid line {
+  stroke: hsl(var(--border));
+  stroke-dasharray: 4 4;
+}

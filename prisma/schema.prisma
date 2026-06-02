@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  client
+  manager
+}
+
+enum IntegrationStatus {
+  active
+  paused
+  error
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum SyncStatus {
+  success
+  failed
+  running
+}
+
+model User {
+  id             String               @id @default(cuid())
+  name           String
+  email          String               @unique
+  passwordHash   String               @map("password_hash")
+  role           UserRole
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  telegramChats  TelegramSubscriber[]
+
+  @@map("users")
+}
+
+model Client {
+  id               String            @id @default(cuid())
+  name             String
+  currency         String            @default("USD")
+  timezone         String            @default("Asia/Tashkent")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  facebookAccounts FacebookAccount[]
+  amoAccounts      AmoAccount[]
+  kpiTargets       KpiTarget[]
+  alerts           Alert[]
+
+  @@map("clients")
+}
+
+model FacebookAccount {
+  id            String             @id @default(cuid())
+  clientId      String             @map("client_id")
+  accountName   String             @map("account_name")
+  adAccountId   String             @map("ad_account_id")
+  accessToken   String?            @map("access_token")
+  status        IntegrationStatus  @default(active)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  client        Client             @relation(fields: [clientId], references: [id])
+  campaigns     FacebookCampaign[]
+
+  @@map("facebook_accounts")
+}
+
+model AmoAccount {
+  id           String             @id @default(cuid())
+  clientId     String             @map("client_id")
+  subdomain    String
+  accessToken  String?            @map("access_token")
+  refreshToken String?            @map("refresh_token")
+  expiresAt    DateTime?          @map("expires_at")
+  status       IntegrationStatus  @default(active)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  client       Client             @relation(fields: [clientId], references: [id])
+  leads        AmoLead[]
+
+  @@map("amo_accounts")
+}
+
+model FacebookCampaign {
+  id                String                  @id @default(cuid())
+  facebookAccountId String                  @map("facebook_account_id")
+  campaignId        String                  @unique @map("campaign_id")
+  campaignName      String                  @map("campaign_name")
+  objective         String?
+  status            String
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  facebookAccount   FacebookAccount         @relation(fields: [facebookAccountId], references: [id])
+  dailyStats        FacebookAdsDailyStat[]
+  leadMatches       LeadMatch[]
+
+  @@map("facebook_campaigns")
+}
+
+model FacebookAdsDailyStat {
+  id         String           @id @default(cuid())
+  campaignId String           @map("campaign_id")
+  adsetId    String?          @map("adset_id")
+  adId       String?          @map("ad_id")
+  date       DateTime
+  spend      Decimal          @default(0) @db.Decimal(12, 2)
+  impressions Int             @default(0)
+  reach      Int              @default(0)
+  clicks     Int              @default(0)
+  ctr        Decimal          @default(0) @db.Decimal(8, 2)
+  cpc        Decimal          @default(0) @db.Decimal(8, 2)
+  cpm        Decimal          @default(0) @db.Decimal(8, 2)
+  leads      Int              @default(0)
+  cpl        Decimal          @default(0) @db.Decimal(8, 2)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+  campaign   FacebookCampaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([campaignId, adsetId, adId, date])
+  @@map("facebook_ads_daily_stats")
+}
+
+model AmoLead {
+  id                  String              @id @default(cuid())
+  amoAccountId        String              @map("amo_account_id")
+  amoLeadId           String              @unique @map("amo_lead_id")
+  leadName            String?             @map("lead_name")
+  statusId            String?             @map("status_id")
+  statusName          String?             @map("status_name")
+  pipelineId          String?             @map("pipeline_id")
+  pipelineName        String?             @map("pipeline_name")
+  responsibleUserId   String?             @map("responsible_user_id")
+  responsibleUserName String?             @map("responsible_user_name")
+  price               Decimal             @default(0) @db.Decimal(12, 2)
+  source              String?
+  utmSource           String?             @map("utm_source")
+  utmMedium           String?             @map("utm_medium")
+  utmCampaign         String?             @map("utm_campaign")
+  utmContent          String?             @map("utm_content")
+  utmTerm             String?             @map("utm_term")
+  phone               String?
+  contactName         String?             @map("contact_name")
+  createdAtAmo        DateTime            @map("created_at_amo")
+  updatedAtAmo        DateTime            @map("updated_at_amo")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  amoAccount          AmoAccount          @relation(fields: [amoAccountId], references: [id])
+  statusHistory       LeadStatusHistory[]
+  qualityScores       LeadQualityScore[]
+  matches             LeadMatch[]
+  sales               Sale[]
+
+  @@map("amo_leads")
+}
+
+model LeadStatusHistory {
+  id        String   @id @default(cuid())
+  amoLeadId String   @map("amo_lead_id")
+  oldStatus String?  @map("old_status")
+  newStatus String?  @map("new_status")
+  changedAt DateTime @map("changed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  amoLead   AmoLead  @relation(fields: [amoLeadId], references: [id])
+
+  @@map("lead_status_history")
+}
+
+model LeadQualityScore {
+  id           String   @id @default(cuid())
+  amoLeadId    String   @map("amo_lead_id")
+  score        Int
+  qualityLabel String   @map("quality_label")
+  reason       String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  amoLead      AmoLead  @relation(fields: [amoLeadId], references: [id])
+
+  @@map("lead_quality_scores")
+}
+
+model LeadMatch {
+  id                 String            @id @default(cuid())
+  amoLeadId          String            @map("amo_lead_id")
+  facebookCampaignId String?           @map("facebook_campaign_id")
+  facebookAdsetId    String?           @map("facebook_adset_id")
+  facebookAdId       String?           @map("facebook_ad_id")
+  matchType          String            @map("match_type")
+  confidenceScore    Decimal           @default(0) @map("confidence_score") @db.Decimal(4, 2)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  amoLead            AmoLead           @relation(fields: [amoLeadId], references: [id])
+  facebookCampaign   FacebookCampaign? @relation(fields: [facebookCampaignId], references: [id])
+
+  @@map("lead_matches")
+}
+
+model Sale {
+  id        String   @id @default(cuid())
+  amoLeadId String   @map("amo_lead_id")
+  amount    Decimal  @default(0) @db.Decimal(12, 2)
+  saleDate  DateTime @map("sale_date")
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  amoLead   AmoLead  @relation(fields: [amoLeadId], references: [id])
+
+  @@map("sales")
+}
+
+model KpiTarget {
+  id                String   @id @default(cuid())
+  clientId          String   @map("client_id")
+  maxCpl            Decimal  @map("max_cpl") @db.Decimal(12, 2)
+  maxCpa            Decimal  @map("max_cpa") @db.Decimal(12, 2)
+  minRoas           Decimal  @map("min_roas") @db.Decimal(8, 2)
+  minConversionRate Decimal  @map("min_conversion_rate") @db.Decimal(8, 2)
+  dailyBudget       Decimal  @map("daily_budget") @db.Decimal(12, 2)
+  monthlyBudget     Decimal  @map("monthly_budget") @db.Decimal(12, 2)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  client            Client   @relation(fields: [clientId], references: [id])
+
+  @@map("kpi_targets")
+}
+
+model Alert {
+  id        String        @id @default(cuid())
+  clientId  String        @map("client_id")
+  alertType String        @map("alert_type")
+  title     String
+  message   String
+  severity  AlertSeverity @default(info)
+  isSent    Boolean       @default(false) @map("is_sent")
+  sentAt    DateTime?     @map("sent_at")
+  createdAt DateTime      @default(now()) @map("created_at")
+  client    Client        @relation(fields: [clientId], references: [id])
+
+  @@map("alerts")
+}
+
+model TelegramSubscriber {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  chatId    String   @map("chat_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("telegram_subscribers")
+}
+
+model SyncLog {
+  id              String     @id @default(cuid())
+  integrationType String     @map("integration_type")
+  status          SyncStatus
+  message         String?
+  startedAt       DateTime   @map("started_at")
+  finishedAt      DateTime?  @map("finished_at")
+
+  @@map("sync_logs")
+}
