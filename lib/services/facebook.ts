@@ -1,22 +1,47 @@
-import { facebookAccounts, facebookCampaigns, facebookDailyStats, syncLogs } from "@/lib/mock-data";
+import { facebookAccounts, facebookCampaigns, facebookDailyStats } from "@/lib/production-data";
 import { getDateRange, isWithinDateRange, type DateRangeInput } from "@/lib/date-range";
 import type { ReportScope } from "@/lib/types";
 
 export async function connectFacebookAccount() {
+  const account = facebookAccounts[0];
+
+  if (!account) {
+    return {
+      ok: false,
+      account: null,
+      message: "Meta Ads ulanishi sozlanmagan. FACEBOOK_ACCESS_TOKEN va FACEBOOK_AD_ACCOUNT_ID ni kiriting."
+    };
+  }
+
   return {
     ok: true,
-    account: facebookAccounts[0],
-    message: "Meta Ads test ulanishi tayyor. Real ulanish uchun Meta OAuth adapterini ulang."
+    account,
+    message: "Meta Ads ulanish sozlamalari topildi. Ma'lumotlarni sinxronlash adapteri tayyorlanadi."
   };
 }
 
 export async function syncFacebookData() {
+  if (!facebookAccounts.length) {
+    return {
+      ok: false,
+      log: {
+        integrationType: "facebook",
+        status: "failed",
+        message: "Meta Ads sozlanmagan. FACEBOOK_ACCESS_TOKEN va FACEBOOK_AD_ACCOUNT_ID kerak.",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString()
+      }
+    };
+  }
+
   return {
     ok: true,
     log: {
-      ...syncLogs.find((log) => log.integrationType === "facebook"),
       status: "success",
-      message: "Meta Ads test ma'lumotlari yangilandi: reklamalar va kunlik natijalar yangilandi."
+      integrationType: "facebook",
+      message: "Meta Ads ulanishi tayyor. Real statistikani yozish uchun server adapterini ulang.",
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString()
     }
   };
 }

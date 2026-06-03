@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Building2, Check, ChevronDown, KeyRound, Plus, X } from "lucide-react";
+import { Building2, Check, ChevronDown, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,6 @@ type BaseAccount = {
 };
 
 type LocalAccount = BaseAccount & {
-  facebookApiKey: string;
-  crmApiKey: string;
   isLocal: true;
 };
 
@@ -54,8 +52,7 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
   const [localAccounts, setLocalAccounts] = useState<LocalAccount[]>([]);
   const [accountName, setAccountName] = useState("");
   const [adAccountId, setAdAccountId] = useState("");
-  const [facebookApiKey, setFacebookApiKey] = useState("");
-  const [crmApiKey, setCrmApiKey] = useState("");
+  const [crmName, setCrmName] = useState("");
 
   useEffect(() => {
     setLocalAccounts(readLocalAccounts());
@@ -84,7 +81,7 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
   function saveAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!accountName.trim() || !facebookApiKey.trim() || !crmApiKey.trim()) {
+    if (!accountName.trim()) {
       return;
     }
 
@@ -92,9 +89,7 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
       id: `local_${Date.now()}`,
       accountName: accountName.trim(),
       adAccountId: adAccountId.trim() || "Yangi Meta akkaunt",
-      crmName: "CRM ulangan",
-      facebookApiKey: facebookApiKey.trim(),
-      crmApiKey: crmApiKey.trim(),
+      crmName: crmName.trim() || undefined,
       isLocal: true
     };
     const nextAccounts = [...localAccounts, account];
@@ -103,8 +98,7 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
     setLocalAccounts(nextAccounts);
     setAccountName("");
     setAdAccountId("");
-    setFacebookApiKey("");
-    setCrmApiKey("");
+    setCrmName("");
     setShowForm(false);
     selectAccount(account.id);
   }
@@ -190,26 +184,11 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
                   onChange={(event) => setAdAccountId(event.target.value)}
                   placeholder="Meta ad account ID"
                 />
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    value={facebookApiKey}
-                    onChange={(event) => setFacebookApiKey(event.target.value)}
-                    placeholder="Facebook API"
-                    type="password"
-                  />
-                </div>
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    value={crmApiKey}
-                    onChange={(event) => setCrmApiKey(event.target.value)}
-                    placeholder="CRM API"
-                    type="password"
-                  />
-                </div>
+                <Input
+                  value={crmName}
+                  onChange={(event) => setCrmName(event.target.value)}
+                  placeholder="CRM nomi yoki subdomain"
+                />
                 <Button type="submit" size="sm">
                   Profilni saqlash
                 </Button>

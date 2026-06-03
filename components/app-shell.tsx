@@ -6,7 +6,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { SyncActions } from "@/components/sync-actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
-import { amoAccounts, facebookAccounts } from "@/lib/mock-data";
+import { amoAccounts, facebookAccounts } from "@/lib/production-data";
 import type { User } from "@/lib/types";
 
 type AppShellProps = {

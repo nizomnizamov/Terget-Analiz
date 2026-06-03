@@ -18,8 +18,8 @@ export const POST = withApiErrorHandling(async (request) => {
 
   return NextResponse.json({
     ok: true,
-    provider: "mock",
+    provider: "telegram",
     received: Boolean(update),
-    message: "Telegram webhook received. Add command routing here when real bot token is configured."
+    message: "Telegram webhook qabul qilindi."
   });
 });

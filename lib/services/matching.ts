@@ -1,4 +1,4 @@
-import { amoLeads, facebookCampaigns, leadMatches } from "@/lib/mock-data";
+import { amoLeads, facebookCampaigns, leadMatches } from "@/lib/production-data";
 import { safeDivide } from "@/lib/utils";
 
 export function getMatchingSummary() {

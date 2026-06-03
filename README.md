@@ -1,6 +1,6 @@
 # Targel Analiz Dashboard
 
-Meta Ads + amoCRM uchun sodda reklama va sotuv nazorati. Birinchi versiya test ma'lumotlari bilan ishlaydi, shuning uchun interfeys, ko'rsatkichlar, sotuv varonkasi, lid sifati, operatorlar natijasi, ogohlantirishlar va Telegram hisobotlari real API ulashdan oldin tekshiriladi.
+Meta Ads + amoCRM uchun sodda reklama va sotuv nazorati. Loyiha demo ma'lumot ko'rsatmaydi: real ulanishlar sozlanmaguncha dashboard bo'sh holatda turadi va foydalanuvchiga faqat haqiqiy sozlangan ma'lumotlar ko'rinadi.
 
 ## Stack
 
@@ -22,31 +22,41 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Demo login:
-
-- `admin@demo.uz` / `demo123`
-- `client@demo.uz` / `demo123`
-- `madina@demo.uz` / `demo123`
-
 ## Environment
 
-Copy `.env.example` to `.env` and fill real credentials when integrations are connected.
+Copy `.env.example` to `.env` and fill real credentials. `APP_ADMIN_EMAIL` and `APP_ADMIN_PASSWORD` are required for login.
 
 ```bash
 DATABASE_URL=
 NEXTAUTH_SECRET=
+APP_ADMIN_EMAIL=
+APP_ADMIN_PASSWORD=
+APP_ADMIN_NAME=Administrator
+APP_CLIENT_NAME=Targel Analiz
+APP_TIMEZONE=Asia/Tashkent
+APP_CURRENCY=USD
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 FACEBOOK_ACCESS_TOKEN=
+FACEBOOK_AD_ACCOUNT_ID=
+FACEBOOK_ACCOUNT_NAME=
 AMO_CLIENT_ID=
 AMO_CLIENT_SECRET=
 AMO_REDIRECT_URI=
 AMO_SUBDOMAIN=
+AMO_ACCESS_TOKEN=
+AMO_REFRESH_TOKEN=
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_IDS=
 TELEGRAM_TIMEOUT_MS=10000
 TELEGRAM_WEBHOOK_SECRET=
 CRON_SECRET=
+KPI_MAX_CPL=
+KPI_MAX_CPA=
+KPI_MIN_ROAS=
+KPI_MIN_CONVERSION_RATE=
+KPI_DAILY_BUDGET=
+KPI_MONTHLY_BUDGET=
 ```
 
 ## MVP Routes
@@ -118,7 +128,7 @@ Telegram reports:
 
 ## Data Logic
 
-Test Meta Ads va amoCRM ma'lumotlari `lib/mock-data.ts` ichida. Natijalar `lib/analytics.ts` ichida hisoblanadi:
+Dashboard natijalari `lib/analytics.ts` ichida hisoblanadi. Real ma'lumotlar server integration qatlamlari orqali keladi; ulanishlar sozlanmaguncha raqamlar 0 va jadvallar bo'sh bo'ladi.
 
 - CPL = Xarajat / Lidlar
 - CPA = Xarajat / Sotuvlar
@@ -139,7 +149,7 @@ Lidni reklama bilan bog'lash ustuvorligi service qatlamida quyidagicha ishlaydi:
 
 ## Real Integration Path
 
-Real ulanish uchun test adapterlarini shu fayllarda almashtiring:
+Real ulanish adapterlari shu fayllarda turadi:
 
 - `lib/services/facebook.ts`
 - `lib/services/amo.ts`

@@ -9,7 +9,7 @@ import {
   leadQualityScores,
   leadStatusHistory,
   sales
-} from "@/lib/mock-data";
+} from "@/lib/production-data";
 import {
   addDays,
   getDateRange,
@@ -95,6 +95,10 @@ function metricStatus(
   target: number,
   direction: "higher" | "lower"
 ): "good" | "neutral" | "warning" | "bad" {
+  if (target <= 0) {
+    return "neutral";
+  }
+
   if (direction === "higher") {
     if (value >= target) return "good";
     if (value >= target * 0.8) return "warning";

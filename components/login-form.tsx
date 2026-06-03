@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { LockKeyhole, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { demoAccounts } from "@/lib/demo-accounts";
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState(demoAccounts[0].email);
-  const [password, setPassword] = useState(demoAccounts[0].password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -77,22 +76,6 @@ export function LoginForm() {
       <Button type="submit" disabled={loading}>
         {loading ? "Kirilmoqda..." : "Kirish"}
       </Button>
-      <div className="grid gap-2 border-t pt-4">
-        {demoAccounts.map((account) => (
-          <button
-            key={account.email}
-            type="button"
-            onClick={() => {
-              setEmail(account.email);
-              setPassword(account.password);
-            }}
-            className="flex items-center justify-between rounded-md border bg-card px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-          >
-            <span>{account.email}</span>
-            <span className="text-xs font-medium text-muted-foreground">{account.role}</span>
-          </button>
-        ))}
-      </div>
     </form>
   );
 }

@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies, headers } from "next/headers";
-import { demoPassword } from "@/lib/demo-accounts";
-import { users } from "@/lib/mock-data";
+import { adminCredentials, users } from "@/lib/production-data";
 import type { User } from "@/lib/types";
 
 export const authCookieName = "targel_session";
@@ -13,7 +12,7 @@ type SessionPayload = {
 };
 
 function sessionSecret() {
-  return process.env.NEXTAUTH_SECRET ?? process.env.SESSION_SECRET ?? "targel-demo-session-secret";
+  return process.env.NEXTAUTH_SECRET ?? process.env.SESSION_SECRET ?? "targel-development-session-secret";
 }
 
 function signSessionPayload(payload: string) {
@@ -68,11 +67,15 @@ function decodeSession(value?: string) {
 }
 
 export function authenticate(email: string, password: string) {
-  if (password !== demoPassword) {
+  if (!adminCredentials.email || !adminCredentials.password) {
     return null;
   }
 
-  return users.find((user) => user.email.toLowerCase() === email.toLowerCase()) ?? null;
+  if (email.toLowerCase() !== adminCredentials.email.toLowerCase() || password !== adminCredentials.password) {
+    return null;
+  }
+
+  return users[0] ?? null;
 }
 
 export async function setSession(user: User) {

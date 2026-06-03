@@ -1,6 +1,6 @@
 import { getDashboardOverview } from "@/lib/analytics";
 import { getDateRange, type DateRangeInput } from "@/lib/date-range";
-import { telegramSubscribers } from "@/lib/mock-data";
+import { telegramSubscribers } from "@/lib/production-data";
 
 export type TelegramReportPeriod = "daily" | "weekly" | "monthly";
 const configuredTelegramTimeoutMs = Number(process.env.TELEGRAM_TIMEOUT_MS ?? 10_000);
@@ -74,11 +74,11 @@ export async function sendTelegramMessage(message: string, chatIds = reportChatI
 
   if (!token) {
     return {
-      ok: true,
-      provider: "mock",
+      ok: false,
+      provider: "telegram",
       recipients: chatIds,
       message,
-      note: "TELEGRAM_BOT_TOKEN berilganda real Telegram Bot API orqali yuboriladi."
+      error: "TELEGRAM_BOT_TOKEN sozlanmagan."
     };
   }
 

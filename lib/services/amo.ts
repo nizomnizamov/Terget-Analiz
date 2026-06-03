@@ -1,21 +1,46 @@
-import { amoAccounts, amoLeads, amoPipelines, syncLogs } from "@/lib/mock-data";
+import { amoAccounts, amoLeads, amoPipelines } from "@/lib/production-data";
 import { getDateRange, isWithinDateRange, type DateRangeInput } from "@/lib/date-range";
 
 export async function connectAmoAccount() {
+  const account = amoAccounts[0];
+
+  if (!account) {
+    return {
+      ok: false,
+      account: null,
+      message: "amoCRM ulanishi sozlanmagan. AMO_SUBDOMAIN va amoCRM tokenlarini kiriting."
+    };
+  }
+
   return {
     ok: true,
-    account: amoAccounts[0],
-    message: "amoCRM test ulanishi tayyor. Real ulanish uchun amoCRM OAuth adapterini ulang."
+    account,
+    message: "amoCRM ulanish sozlamalari topildi. Varonka va lidlarni sinxronlash adapteri tayyorlanadi."
   };
 }
 
 export async function syncAmoData() {
+  if (!amoAccounts.length) {
+    return {
+      ok: false,
+      log: {
+        integrationType: "amo",
+        status: "failed",
+        message: "amoCRM sozlanmagan. AMO_SUBDOMAIN va tokenlar kerak.",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString()
+      }
+    };
+  }
+
   return {
     ok: true,
     log: {
-      ...syncLogs.find((log) => log.integrationType === "amo"),
       status: "success",
-      message: "amoCRM test ma'lumotlari yangilandi: lidlar, holatlar, operatorlar va sotuvlar yangilandi."
+      integrationType: "amo",
+      message: "amoCRM ulanishi tayyor. Real lidlarni yozish uchun server adapterini ulang.",
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString()
     }
   };
 }

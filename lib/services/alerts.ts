@@ -1,6 +1,5 @@
 import { getGeneratedAlerts } from "@/lib/analytics";
 import type { DateRangeInput } from "@/lib/date-range";
-import { syncLogs } from "@/lib/mock-data";
 import type { ReportScope } from "@/lib/types";
 
 export async function checkAlerts(range: DateRangeInput = "today", scope?: ReportScope) {
@@ -8,9 +7,11 @@ export async function checkAlerts(range: DateRangeInput = "today", scope?: Repor
     ok: true,
     alerts: getGeneratedAlerts(range, null, scope),
     log: {
-      ...syncLogs.find((log) => log.integrationType === "alerts"),
       status: "success",
-      message: "KPI limits checked with mock data."
+      integrationType: "alerts",
+      message: "Ogohlantirishlar real metrikalar asosida tekshirildi.",
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString()
     }
   };
 }
