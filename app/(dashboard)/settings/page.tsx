@@ -1,19 +1,9 @@
 import { CheckCircle2, Database, Facebook, MessageCircle, TriangleAlert } from "lucide-react";
+import { SettingsConnectionsForm } from "@/components/settings-connections-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { amoAccounts, facebookAccounts, kpiTargets, syncLogs } from "@/lib/production-data";
+import { getIntegrationSummary } from "@/lib/integration-settings";
+import { kpiTargets, syncLogs } from "@/lib/production-data";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
-
-const envItems = [
-  { key: "APP_ADMIN_EMAIL", label: "Admin email" },
-  { key: "APP_ADMIN_PASSWORD", label: "Admin parol" },
-  { key: "DATABASE_URL", label: "Ma'lumotlar bazasi" },
-  { key: "NEXTAUTH_SECRET", label: "Kirish xavfsizligi" },
-  { key: "FACEBOOK_ACCESS_TOKEN", label: "Meta Ads ulanishi" },
-  { key: "FACEBOOK_AD_ACCOUNT_ID", label: "Meta Ads akkaunt" },
-  { key: "AMO_SUBDOMAIN", label: "amoCRM ulanishi" },
-  { key: "TELEGRAM_BOT_TOKEN", label: "Telegram bot" },
-  { key: "CRON_SECRET", label: "Avtomatik yangilash" }
-];
 
 const statusLabel = {
   active: "Ulangan",
@@ -34,6 +24,33 @@ function optionalMetric(value: number, formatter: (value: number) => string) {
 
 export default function SettingsPage() {
   const target = kpiTargets[0];
+  const summaryPromise = getIntegrationSummary();
+
+  return <SettingsContent target={target} summaryPromise={summaryPromise} />;
+}
+
+async function SettingsContent({
+  target,
+  summaryPromise
+}: {
+  target: typeof kpiTargets[number];
+  summaryPromise: ReturnType<typeof getIntegrationSummary>;
+}) {
+  const summary = await summaryPromise;
+  const facebookAccount = summary.facebookAccounts[0];
+  const amoAccount = summary.amoAccounts[0];
+  const readinessItems = [
+    { label: "Admin email", ready: Boolean(process.env.APP_ADMIN_EMAIL) },
+    { label: "Admin parol", ready: Boolean(process.env.APP_ADMIN_PASSWORD) },
+    { label: "Ma'lumotlar bazasi", ready: summary.databaseReady },
+    { label: "Kirish xavfsizligi", ready: Boolean(process.env.NEXTAUTH_SECRET) },
+    { label: "Meta Ads ulanishi", ready: summary.facebookAccounts.length > 0 },
+    { label: "Meta Ads akkaunt", ready: Boolean(facebookAccount?.adAccountId) },
+    { label: "amoCRM ulanishi", ready: summary.amoAccounts.length > 0 },
+    { label: "Telegram bot", ready: summary.telegram.hasBotToken },
+    { label: "Telegram chat ID", ready: summary.telegram.chatIds.length > 0 },
+    { label: "Avtomatik hisobot", ready: Boolean(process.env.CRON_SECRET) }
+  ];
 
   return (
     <div className="grid gap-6">
@@ -46,8 +63,8 @@ export default function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
-            {facebookAccounts.length ? (
-              facebookAccounts.map((account) => (
+            {summary.facebookAccounts.length ? (
+              summary.facebookAccounts.map((account) => (
                 <div key={account.id} className="rounded-md border bg-card px-3 py-2">
                   <p className="font-medium">{account.accountName}</p>
                   <p className="text-muted-foreground">{account.adAccountId}</p>
@@ -69,10 +86,10 @@ export default function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
-            {amoAccounts[0] ? (
+            {summary.amoAccounts[0] ? (
               <>
-                <p className="font-medium">{amoAccounts[0].subdomain}.amocrm.com</p>
-                <p className="font-semibold text-emerald-700">{statusLabel[amoAccounts[0].status]}</p>
+                <p className="font-medium">{summary.amoAccounts[0].subdomain}.amocrm.ru</p>
+                <p className="font-semibold text-emerald-700">{statusLabel[summary.amoAccounts[0].status]}</p>
               </>
             ) : (
               <p className="rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground">
@@ -90,10 +107,27 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
             <p className="font-medium">Har kuni 22:00 da kunlik hisobot</p>
-            <p className="text-muted-foreground">Haftalik va oylik hisobotlar ham avtomatik yuboriladi</p>
+            <p className={summary.telegram.chatIds.length ? "font-semibold text-emerald-700" : "text-muted-foreground"}>
+              {summary.telegram.chatIds.length ? "Qabul qiluvchi ulangan" : "Chat ID kiritilmagan"}
+            </p>
           </CardContent>
         </Card>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ulanishlarni sozlash</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SettingsConnectionsForm
+            databaseReady={summary.databaseReady}
+            facebookAccountName={facebookAccount?.accountName}
+            facebookAdAccountId={facebookAccount?.adAccountId}
+            amoSubdomain={amoAccount?.subdomain}
+            telegramChatIds={summary.telegram.chatIds}
+          />
+        </CardContent>
+      </Card>
 
       <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <Card>
@@ -134,10 +168,10 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2">
-              {envItems.map((item) => (
-                <div key={item.key} className="flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm">
+              {readinessItems.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm">
                   <span className="font-medium">{item.label}</span>
-                  {process.env[item.key] ? (
+                  {item.ready ? (
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
                   ) : (
                     <TriangleAlert className="h-4 w-4 shrink-0 text-amber-700" />

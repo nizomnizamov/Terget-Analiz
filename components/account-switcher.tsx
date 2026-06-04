@@ -1,10 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Building2, Check, ChevronDown, Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Building2, Check, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type BaseAccount = {
@@ -13,30 +11,6 @@ type BaseAccount = {
   adAccountId: string;
   crmName?: string;
 };
-
-type LocalAccount = BaseAccount & {
-  isLocal: true;
-};
-
-type AccountProfile = BaseAccount & {
-  isLocal?: boolean;
-};
-
-const storageKey = "targel-account-profiles";
-
-function readLocalAccounts() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
-
-    return Array.isArray(parsed) ? (parsed as LocalAccount[]) : [];
-  } catch {
-    return [];
-  }
-}
 
 function profileInitial(name: string) {
   return name.trim().slice(0, 1).toUpperCase() || "A";
@@ -48,20 +22,8 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
   const searchParams = useSearchParams();
   const selectedAccountId = searchParams.get("accountId") ?? "all";
   const [open, setOpen] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [localAccounts, setLocalAccounts] = useState<LocalAccount[]>([]);
-  const [accountName, setAccountName] = useState("");
-  const [adAccountId, setAdAccountId] = useState("");
-  const [crmName, setCrmName] = useState("");
 
-  useEffect(() => {
-    setLocalAccounts(readLocalAccounts());
-  }, []);
-
-  const profiles = useMemo<AccountProfile[]>(
-    () => [...accounts, ...localAccounts],
-    [accounts, localAccounts]
-  );
+  const profiles = useMemo(() => accounts, [accounts]);
   const selectedProfile = profiles.find((account) => account.id === selectedAccountId);
   const buttonLabel = selectedProfile?.accountName ?? "Barcha akkauntlar";
 
@@ -76,31 +38,6 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
 
     router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
     setOpen(false);
-  }
-
-  function saveAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!accountName.trim()) {
-      return;
-    }
-
-    const account: LocalAccount = {
-      id: `local_${Date.now()}`,
-      accountName: accountName.trim(),
-      adAccountId: adAccountId.trim() || "Yangi Meta akkaunt",
-      crmName: crmName.trim() || undefined,
-      isLocal: true
-    };
-    const nextAccounts = [...localAccounts, account];
-
-    window.localStorage.setItem(storageKey, JSON.stringify(nextAccounts));
-    setLocalAccounts(nextAccounts);
-    setAccountName("");
-    setAdAccountId("");
-    setCrmName("");
-    setShowForm(false);
-    selectAccount(account.id);
   }
 
   return (
@@ -165,35 +102,15 @@ export function AccountSwitcher({ accounts }: { accounts: BaseAccount[] }) {
           <div className="mt-2 border-t pt-2">
             <button
               type="button"
-              onClick={() => setShowForm((value) => !value)}
+              onClick={() => {
+                setOpen(false);
+                router.push("/settings");
+              }}
               className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold transition-colors hover:bg-muted"
             >
-              {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              Yangi profil ulash
+              <Plus className="h-4 w-4" />
+              Ulanish qo&apos;shish
             </button>
-
-            {showForm ? (
-              <form onSubmit={saveAccount} className="mt-2 grid gap-2 rounded-md bg-muted/50 p-2">
-                <Input
-                  value={accountName}
-                  onChange={(event) => setAccountName(event.target.value)}
-                  placeholder="Profil nomi"
-                />
-                <Input
-                  value={adAccountId}
-                  onChange={(event) => setAdAccountId(event.target.value)}
-                  placeholder="Meta ad account ID"
-                />
-                <Input
-                  value={crmName}
-                  onChange={(event) => setCrmName(event.target.value)}
-                  placeholder="CRM nomi yoki subdomain"
-                />
-                <Button type="submit" size="sm">
-                  Profilni saqlash
-                </Button>
-              </form>
-            ) : null}
           </div>
         </div>
       ) : null}

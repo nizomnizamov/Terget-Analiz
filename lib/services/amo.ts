@@ -1,5 +1,6 @@
 import { amoAccounts, amoLeads, amoPipelines } from "@/lib/production-data";
 import { getDateRange, isWithinDateRange, type DateRangeInput } from "@/lib/date-range";
+import { getAmoAccountProfiles, getAmoCredentials, type AmoCredentials } from "@/lib/integration-settings";
 import type { AmoLead, AmoPipeline, AmoStatus } from "@/lib/types";
 
 type AmoListResponse<T> = {
@@ -56,26 +57,8 @@ type AmoLeadRaw = {
   };
 };
 
-function token() {
-  return process.env.AMO_ACCESS_TOKEN ?? "";
-}
-
-function baseUrl() {
-  if (process.env.AMO_BASE_URL) {
-    return process.env.AMO_BASE_URL.replace(/\/$/, "");
-  }
-
-  const subdomain = process.env.AMO_SUBDOMAIN;
-
-  return subdomain ? `https://${subdomain}.amocrm.ru` : "";
-}
-
-function isConfigured() {
-  return Boolean(baseUrl() && token());
-}
-
-function amoUrl(path: string, params?: Record<string, string>) {
-  const url = new URL(`${baseUrl()}${path}`);
+function amoUrl(settings: AmoCredentials, path: string, params?: Record<string, string>) {
+  const url = new URL(`${settings.baseUrl}${path}`);
 
   Object.entries(params ?? {}).forEach(([key, value]) => {
     if (value) {
@@ -86,11 +69,11 @@ function amoUrl(path: string, params?: Record<string, string>) {
   return url;
 }
 
-async function amoGet<T>(path: string, params?: Record<string, string>) {
-  const response = await fetch(amoUrl(path, params), {
+async function amoGet<T>(settings: AmoCredentials, path: string, params?: Record<string, string>) {
+  const response = await fetch(amoUrl(settings, path, params), {
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${token()}`,
+      Authorization: `Bearer ${settings.accessToken}`,
       Accept: "application/json"
     }
   });
@@ -103,10 +86,15 @@ async function amoGet<T>(path: string, params?: Record<string, string>) {
   return body ?? {};
 }
 
-async function amoList<T>(path: string, embeddedKey: string, params?: Record<string, string>) {
+async function amoList<T>(
+  settings: AmoCredentials,
+  path: string,
+  embeddedKey: string,
+  params?: Record<string, string>
+) {
   const items: T[] = [];
   let nextUrl: string | undefined;
-  const firstPage = await amoGet<T>(path, params);
+  const firstPage = await amoGet<T>(settings, path, params);
 
   items.push(...(firstPage._embedded?.[embeddedKey] ?? []));
   nextUrl = firstPage._links?.next?.href;
@@ -115,7 +103,7 @@ async function amoList<T>(path: string, embeddedKey: string, params?: Record<str
     const response = await fetch(nextUrl, {
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${token()}`,
+        Authorization: `Bearer ${settings.accessToken}`,
         Accept: "application/json"
       }
     });
@@ -172,7 +160,7 @@ function customValue(fields: AmoCustomFieldValue[] | null | undefined, keys: str
   return String(field?.values?.[0]?.value ?? "");
 }
 
-function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[]): AmoLead {
+function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[], settings?: AmoCredentials | null): AmoLead {
   const pipeline = pipelines.find((item) => item.id === String(lead.pipeline_id));
   const status = pipeline?.statuses.find((item) => item.id === String(lead.status_id));
   const contact = lead._embedded?.contacts?.[0];
@@ -183,7 +171,7 @@ function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[]): AmoLead {
 
   return {
     id: `amo_${lead.id}`,
-    amoAccountId: amoAccounts[0]?.id ?? "amo_account_primary",
+    amoAccountId: settings?.id ?? amoAccounts[0]?.id ?? "amo_account_primary",
     amoLeadId: String(lead.id),
     leadName: lead.name ?? `Lid ${lead.id}`,
     statusId: String(lead.status_id ?? ""),
@@ -211,7 +199,7 @@ function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[]): AmoLead {
 }
 
 export async function connectAmoAccount() {
-  const account = amoAccounts[0];
+  const account = (await getAmoAccountProfiles())[0];
 
   if (!account) {
     return {
@@ -229,7 +217,9 @@ export async function connectAmoAccount() {
 }
 
 export async function syncAmoData() {
-  if (!amoAccounts.length) {
+  const settings = await getAmoCredentials();
+
+  if (!settings) {
     return {
       ok: false,
       log: {
@@ -262,17 +252,19 @@ export async function syncAmoData() {
 }
 
 export async function getAmoLeads(range: DateRangeInput = "today") {
-  if (isConfigured()) {
+  const settings = await getAmoCredentials();
+
+  if (settings) {
     const { from, to } = getDateRange(range);
     const pipelines = await getAmoPipelines();
-    const leads = await amoList<AmoLeadRaw>("/api/v4/leads", "leads", {
+    const leads = await amoList<AmoLeadRaw>(settings, "/api/v4/leads", "leads", {
       "filter[created_at][from]": String(Math.floor(new Date(`${from}T00:00:00.000Z`).getTime() / 1000)),
       "filter[created_at][to]": String(Math.floor(new Date(`${to}T23:59:59.000Z`).getTime() / 1000)),
       with: "contacts",
       limit: "250"
     });
 
-    return leads.map((lead) => mapLead(lead, pipelines));
+    return leads.map((lead) => mapLead(lead, pipelines, settings));
   }
 
   const { from, to } = getDateRange(range);
@@ -280,8 +272,10 @@ export async function getAmoLeads(range: DateRangeInput = "today") {
 }
 
 export async function getAmoPipelines() {
-  if (isConfigured()) {
-    const pipelines = await amoList<AmoPipelineRaw>("/api/v4/leads/pipelines", "pipelines", {
+  const settings = await getAmoCredentials();
+
+  if (settings) {
+    const pipelines = await amoList<AmoPipelineRaw>(settings, "/api/v4/leads/pipelines", "pipelines", {
       with: "statuses",
       limit: "250"
     });

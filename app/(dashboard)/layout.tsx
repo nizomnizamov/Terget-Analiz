@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser } from "@/lib/auth";
+import { getAmoAccountProfiles, getFacebookAccountProfiles } from "@/lib/integration-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +12,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  return <AppShell user={user}>{children}</AppShell>;
+  const [facebookAccounts, amoAccounts] = await Promise.all([
+    getFacebookAccountProfiles(),
+    getAmoAccountProfiles()
+  ]);
+
+  return (
+    <AppShell user={user} facebookAccounts={facebookAccounts} amoAccounts={amoAccounts}>
+      {children}
+    </AppShell>
+  );
 }

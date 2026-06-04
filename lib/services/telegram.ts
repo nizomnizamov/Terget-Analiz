@@ -1,6 +1,6 @@
 import { getDashboardOverview } from "@/lib/analytics";
 import { getDateRange, type DateRangeInput } from "@/lib/date-range";
-import { telegramSubscribers } from "@/lib/production-data";
+import { getTelegramChatIds } from "@/lib/integration-settings";
 
 export type TelegramReportPeriod = "daily" | "weekly" | "monthly";
 const configuredTelegramTimeoutMs = Number(process.env.TELEGRAM_TIMEOUT_MS ?? 10_000);
@@ -24,23 +24,6 @@ function formatRange(range: DateRangeInput) {
   const { from, to } = getDateRange(range);
 
   return from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`;
-}
-
-function reportChatIds() {
-  const envChatIds = process.env.TELEGRAM_CHAT_IDS ?? process.env.TELEGRAM_CHAT_ID;
-
-  if (envChatIds) {
-    return envChatIds
-      .split(",")
-      .map((chatId) => chatId.trim())
-      .filter(Boolean);
-  }
-
-  if (!process.env.TELEGRAM_BOT_TOKEN) {
-    return telegramSubscribers.filter((subscriber) => subscriber.isActive).map((subscriber) => subscriber.chatId);
-  }
-
-  return [];
 }
 
 export async function buildTelegramReport(period: TelegramReportPeriod, range = reportConfig[period].range) {
@@ -69,20 +52,21 @@ export async function buildMonthlyReport(range: DateRangeInput = "thisMonth") {
   return buildTelegramReport("monthly", range);
 }
 
-export async function sendTelegramMessage(message: string, chatIds = reportChatIds()) {
+export async function sendTelegramMessage(message: string, chatIds?: string[]) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
+  const recipients = chatIds ?? (await getTelegramChatIds());
 
   if (!token) {
     return {
       ok: false,
       provider: "telegram",
-      recipients: chatIds,
+      recipients,
       message,
       error: "TELEGRAM_BOT_TOKEN sozlanmagan."
     };
   }
 
-  if (!chatIds.length) {
+  if (!recipients.length) {
     return {
       ok: false,
       provider: "telegram",
@@ -92,7 +76,7 @@ export async function sendTelegramMessage(message: string, chatIds = reportChatI
   }
 
   const results = await Promise.all(
-    chatIds.map(async (chatId) => {
+    recipients.map(async (chatId) => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), telegramTimeoutMs);
 
@@ -132,7 +116,7 @@ export async function sendTelegramMessage(message: string, chatIds = reportChatI
   return {
     ok: results.every((result) => result.ok),
     provider: "telegram",
-    recipients: chatIds,
+    recipients,
     results
   };
 }

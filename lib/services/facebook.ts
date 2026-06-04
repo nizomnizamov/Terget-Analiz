@@ -1,5 +1,6 @@
 import { facebookAccounts, facebookCampaigns, facebookDailyStats } from "@/lib/production-data";
 import { getDateRange, isWithinDateRange, type DateRangeInput } from "@/lib/date-range";
+import { getFacebookAccountProfiles, getFacebookCredentials, type FacebookCredentials } from "@/lib/integration-settings";
 import type { FacebookCampaign, FacebookDailyStat, ReportScope } from "@/lib/types";
 import { safeDivide } from "@/lib/utils";
 
@@ -50,17 +51,9 @@ function normalizeAdAccountId(value: string) {
   return value.startsWith("act_") ? value : `act_${value}`;
 }
 
-function accessToken() {
-  return process.env.FACEBOOK_ACCESS_TOKEN ?? "";
-}
-
-function isConfigured() {
-  return Boolean(accessToken() && process.env.FACEBOOK_AD_ACCOUNT_ID);
-}
-
-function graphUrl(path: string, params?: Record<string, string>) {
+function graphUrl(settings: FacebookCredentials, path: string, params?: Record<string, string>) {
   const url = new URL(`https://graph.facebook.com/${graphVersion}/${path.replace(/^\//, "")}`);
-  url.searchParams.set("access_token", accessToken());
+  url.searchParams.set("access_token", settings.accessToken);
 
   Object.entries(params ?? {}).forEach(([key, value]) => {
     if (value) {
@@ -71,8 +64,8 @@ function graphUrl(path: string, params?: Record<string, string>) {
   return url;
 }
 
-async function metaGet<T>(path: string, params?: Record<string, string>) {
-  const response = await fetch(graphUrl(path, params), { cache: "no-store" });
+async function metaGet<T>(settings: FacebookCredentials, path: string, params?: Record<string, string>) {
+  const response = await fetch(graphUrl(settings, path, params), { cache: "no-store" });
   const body = (await response.json().catch(() => null)) as MetaListResponse<T> | null;
 
   if (!response.ok) {
@@ -82,10 +75,10 @@ async function metaGet<T>(path: string, params?: Record<string, string>) {
   return body ?? {};
 }
 
-async function metaList<T>(path: string, params?: Record<string, string>) {
+async function metaList<T>(settings: FacebookCredentials, path: string, params?: Record<string, string>) {
   const items: T[] = [];
   let nextUrl: string | undefined;
-  const firstPage = await metaGet<T>(path, params);
+  const firstPage = await metaGet<T>(settings, path, params);
 
   items.push(...(firstPage.data ?? []));
   nextUrl = firstPage.paging?.next;
@@ -115,12 +108,12 @@ function actionValue(actions: MetaAction[] | undefined, patterns: string[]) {
   }, 0);
 }
 
-function campaignAccountId() {
-  return facebookAccounts[0]?.id ?? "facebook_account_primary";
+function campaignAccountId(settings?: FacebookCredentials | null) {
+  return settings?.id ?? facebookAccounts[0]?.id ?? "facebook_account_primary";
 }
 
 export async function connectFacebookAccount() {
-  const account = facebookAccounts[0];
+  const account = (await getFacebookAccountProfiles())[0];
 
   if (!account) {
     return {
@@ -138,7 +131,9 @@ export async function connectFacebookAccount() {
 }
 
 export async function syncFacebookData() {
-  if (!isConfigured()) {
+  const settings = await getFacebookCredentials();
+
+  if (!settings) {
     return {
       ok: false,
       log: {
@@ -171,16 +166,18 @@ export async function syncFacebookData() {
 }
 
 export async function getFacebookAccounts() {
-  return facebookAccounts;
+  return getFacebookAccountProfiles();
 }
 
 export async function getFacebookCampaigns(): Promise<FacebookCampaign[]> {
-  if (!isConfigured()) {
+  const settings = await getFacebookCredentials();
+
+  if (!settings) {
     return facebookCampaigns;
   }
 
-  const accountId = normalizeAdAccountId(process.env.FACEBOOK_AD_ACCOUNT_ID!);
-  const campaigns = await metaList<MetaCampaign>(`${accountId}/campaigns`, {
+  const accountId = normalizeAdAccountId(settings.adAccountId);
+  const campaigns = await metaList<MetaCampaign>(settings, `${accountId}/campaigns`, {
     fields: "id,name,objective,status",
     limit: "500"
   });
@@ -188,7 +185,7 @@ export async function getFacebookCampaigns(): Promise<FacebookCampaign[]> {
 
   return campaigns.map((campaign) => ({
     id: `meta_${campaign.id}`,
-    facebookAccountId: campaignAccountId(),
+    facebookAccountId: campaignAccountId(settings),
     campaignId: campaign.id,
     campaignName: campaign.name ?? campaign.id,
     objective: campaign.objective ?? "",
@@ -199,10 +196,12 @@ export async function getFacebookCampaigns(): Promise<FacebookCampaign[]> {
 }
 
 export async function getFacebookStats(range: DateRangeInput = "today", scope?: ReportScope) {
-  if (isConfigured()) {
+  const settings = await getFacebookCredentials();
+
+  if (settings) {
     const { from, to } = getDateRange(range);
-    const accountId = normalizeAdAccountId(process.env.FACEBOOK_AD_ACCOUNT_ID!);
-    const insights = await metaList<MetaInsight>(`${accountId}/insights`, {
+    const accountId = normalizeAdAccountId(settings.adAccountId);
+    const insights = await metaList<MetaInsight>(settings, `${accountId}/insights`, {
       level: "campaign",
       fields: "campaign_id,campaign_name,spend,impressions,reach,clicks,ctr,cpc,cpm,actions,date_start,date_stop",
       time_increment: "1",
@@ -212,7 +211,7 @@ export async function getFacebookStats(range: DateRangeInput = "today", scope?: 
     const now = new Date().toISOString();
 
     return insights
-      .filter(() => !scope?.facebookAccountId || scope.facebookAccountId === campaignAccountId())
+      .filter(() => !scope?.facebookAccountId || scope.facebookAccountId === campaignAccountId(settings))
       .map<FacebookDailyStat>((item) => {
         const leads = actionValue(item.actions, ["lead"]);
         const spend = Number(item.spend ?? 0);

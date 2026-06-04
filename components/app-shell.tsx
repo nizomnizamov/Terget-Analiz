@@ -6,15 +6,16 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { SyncActions } from "@/components/sync-actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
-import { amoAccounts, facebookAccounts } from "@/lib/production-data";
-import type { User } from "@/lib/types";
+import type { AmoAccount, FacebookAccount, User } from "@/lib/types";
 
 type AppShellProps = {
   user: User;
+  facebookAccounts: FacebookAccount[];
+  amoAccounts: AmoAccount[];
   children: React.ReactNode;
 };
 
-export function AppShell({ user, children }: AppShellProps) {
+export function AppShell({ user, facebookAccounts, amoAccounts, children }: AppShellProps) {
   const roleLabel = {
     admin: "Admin",
     client: "Mijoz",
