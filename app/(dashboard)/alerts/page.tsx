@@ -9,7 +9,7 @@ export default async function AlertsPage({ searchParams }: { searchParams?: Page
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
   const user = await getCurrentUser();
-  const alerts = getGeneratedAlerts(range, user, { facebookAccountId: accountId });
+  const alerts = await getGeneratedAlerts(range, user, { facebookAccountId: accountId });
   const critical = alerts.filter((alert) => alert.severity === "critical").length;
   const unsent = alerts.filter((alert) => !alert.isSent).length;
 

@@ -7,7 +7,7 @@ import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 export default async function OperatorsPage({ searchParams }: { searchParams?: PageSearchParams }) {
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
-  const managers = getManagerAnalytics(range, { facebookAccountId: accountId });
+  const managers = await getManagerAnalytics(range, { facebookAccountId: accountId });
   const top = managers[0];
 
   return (

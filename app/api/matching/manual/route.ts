@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { withApiAuth } from "@/lib/api";
+import { getRangeFromRequest, withApiAuth } from "@/lib/api";
 import { manualMatchLead } from "@/lib/services/matching";
 
 const schema = z.object({
@@ -23,5 +23,5 @@ export const POST = withApiAuth(async (request: NextRequest) => {
     return NextResponse.json({ error: "Lid va reklama kerak." }, { status: 400 });
   }
 
-  return NextResponse.json(await manualMatchLead(body.data.leadId, body.data.campaignId));
+  return NextResponse.json(await manualMatchLead(body.data.leadId, body.data.campaignId, getRangeFromRequest(request)));
 });

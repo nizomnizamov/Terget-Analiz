@@ -1,9 +1,11 @@
-import { amoLeads, facebookCampaigns, leadMatches } from "@/lib/production-data";
+import { getAnalyticsData } from "@/lib/data-source";
+import type { DateRangeInput } from "@/lib/date-range";
 import { safeDivide } from "@/lib/utils";
 
-export function getMatchingSummary() {
-  const matched = leadMatches.filter((match) => match.matchType !== "unmatched");
-  const unmatched = leadMatches.length - matched.length;
+export async function getMatchingSummary(range: DateRangeInput = "today") {
+  const data = await getAnalyticsData(range);
+  const matched = data.leadMatches.filter((match) => match.matchType !== "unmatched");
+  const unmatched = data.leadMatches.length - matched.length;
   const averageConfidence =
     safeDivide(
       matched.reduce((total, match) => total + match.confidenceScore, 0),
@@ -11,7 +13,7 @@ export function getMatchingSummary() {
     ) * 100;
 
   return {
-    total: leadMatches.length,
+    total: data.leadMatches.length,
     matched: matched.length,
     unmatched,
     autoMatched: matched.filter((match) => match.matchType !== "manual").length,
@@ -20,29 +22,32 @@ export function getMatchingSummary() {
   };
 }
 
-export async function runLeadMatching() {
-  const unmatched = getUnmatchedLeads();
+export async function runLeadMatching(range: DateRangeInput = "today") {
+  const data = await getAnalyticsData(range);
+  const unmatched = await getUnmatchedLeads(range);
 
   return {
     ok: true,
-    matched: leadMatches.filter((match) => match.matchType !== "unmatched").length,
+    matched: data.leadMatches.filter((match) => match.matchType !== "unmatched").length,
     unmatched: unmatched.length,
-    summary: getMatchingSummary(),
+    summary: await getMatchingSummary(range),
     priority: ["utm_campaign", "utm_content", "ad_id", "adset_id", "campaign_id", "source"]
   };
 }
 
-export function getUnmatchedLeads() {
+export async function getUnmatchedLeads(range: DateRangeInput = "today") {
+  const data = await getAnalyticsData(range);
   const unmatchedIds = new Set(
-    leadMatches.filter((match) => match.matchType === "unmatched").map((match) => match.amoLeadId)
+    data.leadMatches.filter((match) => match.matchType === "unmatched").map((match) => match.amoLeadId)
   );
 
-  return amoLeads.filter((lead) => unmatchedIds.has(lead.id));
+  return data.amoLeads.filter((lead) => unmatchedIds.has(lead.id));
 }
 
-export async function manualMatchLead(leadId: string, campaignId: string) {
-  const lead = amoLeads.find((item) => item.id === leadId);
-  const campaign = facebookCampaigns.find((item) => item.id === campaignId);
+export async function manualMatchLead(leadId: string, campaignId: string, range: DateRangeInput = "today") {
+  const data = await getAnalyticsData(range);
+  const lead = data.amoLeads.find((item) => item.id === leadId);
+  const campaign = data.facebookCampaigns.find((item) => item.id === campaignId);
 
   if (!lead || !campaign) {
     return {

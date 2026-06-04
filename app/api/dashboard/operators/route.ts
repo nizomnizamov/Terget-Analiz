@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getRangeFromRequest, getReportScopeFromRequest, withApiAuth } from "@/lib/api";
 import { getManagerAnalytics } from "@/lib/analytics";
 
-export const GET = withApiAuth((request: NextRequest) => {
+export const GET = withApiAuth(async (request: NextRequest) => {
   return NextResponse.json({
-    managers: getManagerAnalytics(getRangeFromRequest(request), getReportScopeFromRequest(request))
+    managers: await getManagerAnalytics(getRangeFromRequest(request), getReportScopeFromRequest(request))
   });
 });

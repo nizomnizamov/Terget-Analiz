@@ -40,9 +40,11 @@ FACEBOOK_APP_SECRET=
 FACEBOOK_ACCESS_TOKEN=
 FACEBOOK_AD_ACCOUNT_ID=
 FACEBOOK_ACCOUNT_NAME=
+META_GRAPH_VERSION=v23.0
 AMO_CLIENT_ID=
 AMO_CLIENT_SECRET=
 AMO_REDIRECT_URI=
+AMO_BASE_URL=
 AMO_SUBDOMAIN=
 AMO_ACCESS_TOKEN=
 AMO_REFRESH_TOKEN=
@@ -129,6 +131,26 @@ Telegram reports:
 ## Data Logic
 
 Dashboard natijalari `lib/analytics.ts` ichida hisoblanadi. Real ma'lumotlar server integration qatlamlari orqali keladi; ulanishlar sozlanmaguncha raqamlar 0 va jadvallar bo'sh bo'ladi.
+
+Meta Ads:
+
+- `FACEBOOK_ACCESS_TOKEN` Meta Marketing API access token.
+- `FACEBOOK_AD_ACCOUNT_ID` reklama akkaunti ID, masalan `act_123456789` yoki `123456789`.
+- Dashboard `/act_{ad_account_id}/campaigns` va `/act_{ad_account_id}/insights` orqali kampaniya, xarajat, klik, reach, impressions va lead actionlarini oladi.
+- `META_GRAPH_VERSION` kerak bo'lsa Graph API versiyasini boshqaradi.
+
+amoCRM:
+
+- `AMO_SUBDOMAIN` CRM subdomain, masalan `chinargroup`.
+- `AMO_ACCESS_TOKEN` amoCRM API access token.
+- `AMO_BASE_URL` ixtiyoriy, masalan `https://chinargroup.amocrm.ru`.
+- Dashboard `/api/v4/leads/pipelines` orqali varonka/statuslarni, `/api/v4/leads` orqali lidlarni oladi.
+
+Telegram:
+
+- `TELEGRAM_BOT_TOKEN` real bot token.
+- `TELEGRAM_CHAT_IDS` hisobot boradigan chat IDlar, vergul bilan ajratiladi.
+- `/api/cron/telegram-reports` kunlik, haftalik va oylik hisobotlarni yuboradi.
 
 - CPL = Xarajat / Lidlar
 - CPA = Xarajat / Sotuvlar

@@ -13,7 +13,7 @@ export default async function OverviewPage({ searchParams }: { searchParams?: Pa
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
   const user = await getCurrentUser();
-  const overview = getDashboardOverview(range, user, { facebookAccountId: accountId });
+  const overview = await getDashboardOverview(range, user, { facebookAccountId: accountId });
   const adsQuery = new URLSearchParams(rangeToQuery(range));
   if (accountId) {
     adsQuery.set("accountId", accountId);

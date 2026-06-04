@@ -43,9 +43,9 @@ function reportChatIds() {
   return [];
 }
 
-export function buildTelegramReport(period: TelegramReportPeriod, range = reportConfig[period].range) {
+export async function buildTelegramReport(period: TelegramReportPeriod, range = reportConfig[period].range) {
   const config = reportConfig[period];
-  const overview = getDashboardOverview(range);
+  const overview = await getDashboardOverview(range);
   const metricValue = (key: string) => overview.metrics.find((item) => item.key === key)?.value ?? "-";
 
   return [
@@ -57,15 +57,15 @@ export function buildTelegramReport(period: TelegramReportPeriod, range = report
   ].join("\n");
 }
 
-export function buildDailyReport(range: DateRangeInput = "today") {
+export async function buildDailyReport(range: DateRangeInput = "today") {
   return buildTelegramReport("daily", range);
 }
 
-export function buildWeeklyReport(range: DateRangeInput = "last7") {
+export async function buildWeeklyReport(range: DateRangeInput = "last7") {
   return buildTelegramReport("weekly", range);
 }
 
-export function buildMonthlyReport(range: DateRangeInput = "thisMonth") {
+export async function buildMonthlyReport(range: DateRangeInput = "thisMonth") {
   return buildTelegramReport("monthly", range);
 }
 

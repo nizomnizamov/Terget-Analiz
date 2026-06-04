@@ -96,7 +96,7 @@ function dueReports(request: NextRequest): TelegramReportPeriod[] {
   return reports;
 }
 
-function buildReport(period: TelegramReportPeriod) {
+async function buildReport(period: TelegramReportPeriod) {
   if (period === "weekly") {
     return buildWeeklyReport();
   }
@@ -129,7 +129,7 @@ async function handle(request: NextRequest) {
   const results = await Promise.all(
     reports.map(async (period) => ({
       period,
-      result: await sendTelegramMessage(buildReport(period))
+      result: await sendTelegramMessage(await buildReport(period))
     }))
   );
 

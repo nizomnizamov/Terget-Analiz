@@ -5,7 +5,7 @@ import type { ReportScope } from "@/lib/types";
 export async function checkAlerts(range: DateRangeInput = "today", scope?: ReportScope) {
   return {
     ok: true,
-    alerts: getGeneratedAlerts(range, null, scope),
+    alerts: await getGeneratedAlerts(range, null, scope),
     log: {
       status: "success",
       integrationType: "alerts",
@@ -17,7 +17,7 @@ export async function checkAlerts(range: DateRangeInput = "today", scope?: Repor
 }
 
 export async function markAlertsForTelegram(range: DateRangeInput = "today", scope?: ReportScope) {
-  const alerts = getGeneratedAlerts(range, null, scope).filter((alert) => !alert.isSent);
+  const alerts = (await getGeneratedAlerts(range, null, scope)).filter((alert) => !alert.isSent);
 
   return {
     ok: true,

@@ -10,7 +10,7 @@ export default async function CrmFunnelPage({ searchParams }: { searchParams?: P
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
   const user = await getCurrentUser();
-  const funnel = getFunnelAnalytics(range, user, { facebookAccountId: accountId });
+  const funnel = await getFunnelAnalytics(range, user, { facebookAccountId: accountId });
   const total = funnel.reduce((sum, stage) => sum + stage.leads, 0);
   const won = funnel.filter((stage) => stage.isWon).reduce((sum, stage) => sum + stage.leads, 0);
   const lost = funnel.filter((stage) => stage.isLost).reduce((sum, stage) => sum + stage.leads, 0);

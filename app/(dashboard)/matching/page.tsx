@@ -11,9 +11,12 @@ export default async function MatchingPage({ searchParams }: { searchParams?: Pa
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
   const user = await getCurrentUser();
-  const summary = getMatchingSummary();
-  const unmatched = getUnmatchedLeads();
-  const campaigns = getCampaignPerformance(range, user, { facebookAccountId: accountId }).map((campaign) => ({
+  const [summary, unmatched, campaignPerformance] = await Promise.all([
+    getMatchingSummary(range),
+    getUnmatchedLeads(range),
+    getCampaignPerformance(range, user, { facebookAccountId: accountId })
+  ]);
+  const campaigns = campaignPerformance.map((campaign) => ({
     id: campaign.id,
     campaignName: campaign.campaignName,
     health: campaign.health,

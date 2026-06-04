@@ -1,15 +1,4 @@
-import {
-  alerts,
-  amoLeads,
-  client,
-  facebookCampaigns,
-  facebookDailyStats,
-  kpiTargets,
-  leadMatches,
-  leadQualityScores,
-  leadStatusHistory,
-  sales
-} from "@/lib/production-data";
+import { getAnalyticsData, type AnalyticsData } from "@/lib/data-source";
 import {
   addDays,
   getDateRange,
@@ -18,7 +7,6 @@ import {
   toDateKey,
   type DateRangeInput
 } from "@/lib/date-range";
-import { getAmoPipelines } from "@/lib/services/amo";
 import {
   Alert,
   AmoLead,
@@ -37,40 +25,40 @@ function datePart(value: string) {
   return value.slice(0, 10);
 }
 
-function getRangeData(range: DateRangeInput, user?: User | null, scope?: ReportScope) {
+function getRangeData(data: AnalyticsData, range: DateRangeInput, user?: User | null, scope?: ReportScope) {
   const { from, to } = getDateRange(range);
   const scopedCampaignIds = new Set(
     scope?.facebookAccountId
-      ? facebookCampaigns
+      ? data.facebookCampaigns
           .filter((campaign) => campaign.facebookAccountId === scope.facebookAccountId)
           .map((campaign) => campaign.id)
-      : facebookCampaigns.map((campaign) => campaign.id)
+      : data.facebookCampaigns.map((campaign) => campaign.id)
   );
   const scopedLeads =
     user?.role === "manager" && user.managerId
-      ? amoLeads.filter((lead) => lead.responsibleUserId === user.managerId)
-      : amoLeads;
+      ? data.amoLeads.filter((lead) => lead.responsibleUserId === user.managerId)
+      : data.amoLeads;
 
   const leadsInRange = scopedLeads.filter((lead) =>
     isWithinDateRange(datePart(lead.createdAtAmo), from, to) &&
-    (!scope?.facebookAccountId || scopedCampaignIds.has(campaignForLead(lead)?.id ?? ""))
+    (!scope?.facebookAccountId || scopedCampaignIds.has(campaignForLead(data, lead)?.id ?? ""))
   );
   const leadIds = new Set(leadsInRange.map((lead) => lead.id));
-  const statsInRange = facebookDailyStats.filter((stat) =>
+  const statsInRange = data.facebookDailyStats.filter((stat) =>
     isWithinDateRange(stat.date, from, to) && scopedCampaignIds.has(stat.campaignId)
   );
-  const salesInRange = sales.filter((sale) => leadIds.has(sale.amoLeadId));
+  const salesInRange = data.sales.filter((sale) => leadIds.has(sale.amoLeadId));
 
   return { from, to, leadsInRange, statsInRange, salesInRange };
 }
 
-function qualityForLead(leadId: string) {
-  return leadQualityScores.find((score) => score.amoLeadId === leadId);
+function qualityForLead(data: AnalyticsData, leadId: string) {
+  return data.leadQualityScores.find((score) => score.amoLeadId === leadId);
 }
 
-function campaignForLead(lead: AmoLead) {
-  const match = leadMatches.find((item) => item.amoLeadId === lead.id);
-  return facebookCampaigns.find((campaign) => campaign.id === match?.facebookCampaignId);
+function campaignForLead(data: AnalyticsData, lead: AmoLead) {
+  const match = data.leadMatches.find((item) => item.amoLeadId === lead.id);
+  return data.facebookCampaigns.find((campaign) => campaign.id === match?.facebookCampaignId);
 }
 
 function sumBy<T>(items: T[], selector: (item: T) => number) {
@@ -110,23 +98,24 @@ function metricStatus(
   return "bad";
 }
 
-export function getCampaignPerformance(
+function calculateCampaignPerformance(
+  data: AnalyticsData,
   range: DateRangeInput = "today",
   user?: User | null,
   scope?: ReportScope
 ): CampaignPerformance[] {
-  const target = kpiTargets[0];
-  const { leadsInRange, statsInRange, salesInRange } = getRangeData(range, user, scope);
+  const target = data.kpiTargets[0];
+  const { leadsInRange, statsInRange, salesInRange } = getRangeData(data, range, user, scope);
 
-  return facebookCampaigns
+  return data.facebookCampaigns
     .filter((campaign) => !scope?.facebookAccountId || campaign.facebookAccountId === scope.facebookAccountId)
     .map((campaign) => {
       const campaignStats = statsInRange.filter((stat) => stat.campaignId === campaign.id);
-      const campaignLeads = leadsInRange.filter((lead) => campaignForLead(lead)?.id === campaign.id);
+      const campaignLeads = leadsInRange.filter((lead) => campaignForLead(data, lead)?.id === campaign.id);
       const campaignLeadIds = new Set(campaignLeads.map((lead) => lead.id));
       const campaignSales = salesInRange.filter((sale) => campaignLeadIds.has(sale.amoLeadId));
       const campaignScores = campaignLeads
-        .map((lead) => qualityForLead(lead.id)?.score ?? 0)
+        .map((lead) => qualityForLead(data, lead.id)?.score ?? 0)
         .filter((score) => score >= 0);
 
       const spend = sumBy(campaignStats, (stat) => stat.spend);
@@ -149,16 +138,16 @@ export function getCampaignPerformance(
       let health: CampaignPerformance["health"] = "learning";
       let recommendation = "Ko'proq ma'lumot yig'ilguncha nazoratda ushlang.";
 
-      if (spend > target.maxCpa && salesCount === 0) {
+      if (target.maxCpa > 0 && spend > target.maxCpa && salesCount === 0) {
         health = "pause";
         recommendation = "Pul ketmoqda, lekin lid kelmayapti. Auditoriya yoki taklifni tekshiring.";
-      } else if (roas >= target.minRoas && qualifiedRate >= 45) {
+      } else if (target.minRoas > 0 && roas >= target.minRoas && qualifiedRate >= 45) {
         health = "scale";
         recommendation = "Reklama qaytimi va lid sifati yaxshi. Byudjetni asta-sekin oshirish mumkin.";
-      } else if (cpl <= target.maxCpl && averageQualityScore < 3) {
+      } else if (target.maxCpl > 0 && cpl <= target.maxCpl && averageQualityScore < 3) {
         health = "watch";
         recommendation = "Lid arzon, lekin sifati past. Forma va reklama matnini tekshiring.";
-      } else if (roas > 0 && roas < target.minRoas) {
+      } else if (target.minRoas > 0 && roas > 0 && roas < target.minRoas) {
         health = "pause";
         recommendation = "Reklama qaytimi past. Reklamani yaxshilang yoki byudjetni vaqtincha kamaytiring.";
       }
@@ -188,12 +177,13 @@ export function getCampaignPerformance(
     .sort((a, b) => b.revenue - a.revenue);
 }
 
-export function getTrendData(
+function calculateTrendData(
+  data: AnalyticsData,
   range: DateRangeInput = "today",
   user?: User | null,
   scope?: ReportScope
 ): TrendPoint[] {
-  const { from, to, leadsInRange, statsInRange, salesInRange } = getRangeData(range, user, scope);
+  const { from, to, leadsInRange, statsInRange, salesInRange } = getRangeData(data, range, user, scope);
   const dates = dateKeysBetween(from, to);
 
   return dates.map((date) => {
@@ -203,7 +193,7 @@ export function getTrendData(
     const dailySales = salesInRange.filter((sale) => dailyLeadIds.has(sale.amoLeadId));
     const spend = sumBy(dailyStats, (stat) => stat.spend);
     const leads = sumBy(dailyStats, (stat) => stat.leads);
-    const qualifiedLeads = dailyLeads.filter((lead) => (qualityForLead(lead.id)?.score ?? 0) >= 3)
+    const qualifiedLeads = dailyLeads.filter((lead) => (qualityForLead(data, lead.id)?.score ?? 0) >= 3)
       .length;
     const revenue = sumBy(dailySales, (sale) => sale.amount);
 
@@ -220,14 +210,15 @@ export function getTrendData(
   });
 }
 
-export function getFunnelAnalytics(
+function calculateFunnelAnalytics(
+  data: AnalyticsData,
   range: DateRangeInput = "today",
   user?: User | null,
   scope?: ReportScope
 ): FunnelStage[] {
-  const { leadsInRange } = getRangeData(range, user, scope);
+  const { leadsInRange } = getRangeData(data, range, user, scope);
   const totalLeads = leadsInRange.length;
-  const pipelines = getAmoPipelines();
+  const pipelines = data.amoPipelines;
   const activePipeline =
     pipelines.find((pipeline) => leadsInRange.some((lead) => lead.pipelineId === pipeline.id)) ??
     pipelines[0];
@@ -253,7 +244,7 @@ export function getFunnelAnalytics(
 
       return typeof leadStatusIndex === "number" && leadStatusIndex >= index + 1;
     });
-    const stageHistories = leadStatusHistory.filter(
+    const stageHistories = data.leadStatusHistory.filter(
       (history) => currentLeadIds.has(history.amoLeadId) || history.newStatus === status.name
     );
     const averageStayHours = stageHistories.length
@@ -284,19 +275,20 @@ export function getFunnelAnalytics(
   });
 }
 
-export function getLeadQualityAnalytics(
+function calculateLeadQualityAnalytics(
+  data: AnalyticsData,
   range: DateRangeInput = "today",
   user?: User | null,
   scope?: ReportScope
 ): LeadQualityCampaign[] {
-  const { leadsInRange, salesInRange } = getRangeData(range, user, scope);
+  const { leadsInRange, salesInRange } = getRangeData(data, range, user, scope);
 
-  return facebookCampaigns
+  return data.facebookCampaigns
     .filter((campaign) => !scope?.facebookAccountId || campaign.facebookAccountId === scope.facebookAccountId)
     .map((campaign) => {
-      const campaignLeads = leadsInRange.filter((lead) => campaignForLead(lead)?.id === campaign.id);
+      const campaignLeads = leadsInRange.filter((lead) => campaignForLead(data, lead)?.id === campaign.id);
       const leadIds = new Set(campaignLeads.map((lead) => lead.id));
-      const scores = campaignLeads.map((lead) => qualityForLead(lead.id)?.score ?? 0);
+      const scores = campaignLeads.map((lead) => qualityForLead(data, lead.id)?.score ?? 0);
       const salesCount = salesInRange.filter((sale) => leadIds.has(sale.amoLeadId)).length;
 
       return {
@@ -311,8 +303,8 @@ export function getLeadQualityAnalytics(
     });
 }
 
-export function getManagerAnalytics(range: DateRangeInput = "today", scope?: ReportScope): ManagerMetric[] {
-  const { leadsInRange, salesInRange } = getRangeData(range, null, scope);
+function calculateManagerAnalytics(data: AnalyticsData, range: DateRangeInput = "today", scope?: ReportScope): ManagerMetric[] {
+  const { leadsInRange, salesInRange } = getRangeData(data, range, null, scope);
   const managers = Array.from(
     new Map(
       leadsInRange.map((lead) => [
@@ -326,7 +318,7 @@ export function getManagerAnalytics(range: DateRangeInput = "today", scope?: Rep
     .map((manager) => {
       const managerLeads = leadsInRange.filter((lead) => lead.responsibleUserId === manager.id);
       const managerLeadIds = new Set(managerLeads.map((lead) => lead.id));
-      const scores = managerLeads.map((lead) => qualityForLead(lead.id)?.score ?? 0);
+      const scores = managerLeads.map((lead) => qualityForLead(data, lead.id)?.score ?? 0);
       const managerSales = salesInRange.filter((sale) => managerLeadIds.has(sale.amoLeadId));
       const responseMinutes = managerLeads
         .map((lead) => lead.firstResponseMinutes)
@@ -352,20 +344,21 @@ export function getManagerAnalytics(range: DateRangeInput = "today", scope?: Rep
     .sort((a, b) => b.revenue - a.revenue);
 }
 
-export function getGeneratedAlerts(
+function calculateGeneratedAlerts(
+  data: AnalyticsData,
   range: DateRangeInput = "today",
   user?: User | null,
   scope?: ReportScope
 ): Alert[] {
-  const performance = getCampaignPerformance(range, user, scope);
-  const target = kpiTargets[0];
+  const performance = calculateCampaignPerformance(data, range, user, scope);
+  const target = data.kpiTargets[0];
   const generated: Alert[] = [];
 
   performance.forEach((campaign) => {
     if (campaign.spend > 100 && campaign.leads === 0) {
       generated.push({
         id: `generated_no_leads_${campaign.id}`,
-        clientId: client.id,
+        clientId: data.client.id,
         alertType: "spend_no_leads",
         title: `${campaign.campaignName}: pul ketdi, lid kelmadi`,
         message: `${formatCurrency(campaign.spend)} sarflangan, lekin lid kelmagan.`,
@@ -375,10 +368,10 @@ export function getGeneratedAlerts(
       });
     }
 
-    if (campaign.cpl > target.maxCpl * 1.2) {
+    if (target.maxCpl > 0 && campaign.cpl > target.maxCpl * 1.2) {
       generated.push({
         id: `generated_cpl_${campaign.id}`,
-        clientId: client.id,
+        clientId: data.client.id,
         alertType: "high_cpl",
         title: `${campaign.campaignName}: lid narxi limitdan yuqori`,
         message: `Lid narxi ${formatCurrency(campaign.cpl)}, limit ${formatCurrency(target.maxCpl)}.`,
@@ -388,10 +381,10 @@ export function getGeneratedAlerts(
       });
     }
 
-    if (campaign.roas > 0 && campaign.roas < target.minRoas) {
+    if (target.minRoas > 0 && campaign.roas > 0 && campaign.roas < target.minRoas) {
       generated.push({
         id: `generated_roas_${campaign.id}`,
-        clientId: client.id,
+        clientId: data.client.id,
         alertType: "low_roas",
         title: `${campaign.campaignName}: reklama qaytimi past`,
         message: `Qaytim ${formatNumber(campaign.roas)}x, kerakli maqsad ${formatNumber(target.minRoas)}x.`,
@@ -402,11 +395,11 @@ export function getGeneratedAlerts(
     }
   });
 
-  const managerAlerts = getManagerAnalytics(range, scope)
+  const managerAlerts = calculateManagerAnalytics(data, range, scope)
     .filter((manager) => manager.averageResponseMinutes > 90)
     .map<Alert>((manager) => ({
       id: `generated_slow_${manager.managerId}`,
-      clientId: client.id,
+      clientId: data.client.id,
       alertType: "slow_operator_response",
       title: `${manager.managerName}: javob berish vaqti sekin`,
       message: `O'rtacha javob berish vaqti ${formatNumber(manager.averageResponseMinutes)} daqiqa.`,
@@ -415,23 +408,24 @@ export function getGeneratedAlerts(
       createdAt: new Date().toISOString()
     }));
 
-  return [...generated, ...managerAlerts, ...alerts].slice(0, 12);
+  return [...generated, ...managerAlerts, ...data.alerts].slice(0, 12);
 }
 
-export function getDashboardOverview(
+function calculateDashboardOverview(
+  data: AnalyticsData,
   range: DateRangeInput = "today",
   user?: User | null,
   scope?: ReportScope
 ): DashboardOverview {
-  const { leadsInRange, statsInRange, salesInRange } = getRangeData(range, user, scope);
-  const trends = getTrendData(range, user, scope);
-  const funnel = getFunnelAnalytics(range, user, scope);
-  const campaignPerformance = getCampaignPerformance(range, user, scope);
-  const dashboardAlerts = getGeneratedAlerts(range, user, scope);
-  const target = kpiTargets[0];
+  const { leadsInRange, statsInRange, salesInRange } = getRangeData(data, range, user, scope);
+  const trends = calculateTrendData(data, range, user, scope);
+  const funnel = calculateFunnelAnalytics(data, range, user, scope);
+  const campaignPerformance = calculateCampaignPerformance(data, range, user, scope);
+  const dashboardAlerts = calculateGeneratedAlerts(data, range, user, scope);
+  const target = data.kpiTargets[0];
   const spend = sumBy(statsInRange, (stat) => stat.spend);
   const adLeads = sumBy(statsInRange, (stat) => stat.leads);
-  const qualifiedLeads = leadsInRange.filter((lead) => (qualityForLead(lead.id)?.score ?? 0) >= 3).length;
+  const qualifiedLeads = leadsInRange.filter((lead) => (qualityForLead(data, lead.id)?.score ?? 0) >= 3).length;
   const revenue = sumBy(salesInRange, (sale) => sale.amount);
   const salesCount = salesInRange.length;
   const cpl = safeDivide(spend, adLeads);
@@ -444,10 +438,10 @@ export function getDashboardOverview(
     campaignPerformance[0];
   const spendNoLead = campaignPerformance.find((campaign) => campaign.spend > 100 && campaign.leads === 0);
   const cheapLowQuality = campaignPerformance.find(
-    (campaign) => campaign.cpl <= target.maxCpl && campaign.averageQualityScore < 3
+    (campaign) => target.maxCpl > 0 && campaign.cpl <= target.maxCpl && campaign.averageQualityScore < 3
   );
   const lowLeadHighSales = campaignPerformance.find(
-    (campaign) => campaign.leads < 120 && campaign.sales >= 3 && campaign.roas >= target.minRoas
+    (campaign) => target.minRoas > 0 && campaign.leads < 120 && campaign.sales >= 3 && campaign.roas >= target.minRoas
   );
   const insights = [
     bestCampaign
@@ -552,4 +546,56 @@ export function getDashboardOverview(
     worstCampaign,
     insights
   };
+}
+
+export async function getCampaignPerformance(
+  range: DateRangeInput = "today",
+  user?: User | null,
+  scope?: ReportScope
+) {
+  return calculateCampaignPerformance(await getAnalyticsData(range), range, user, scope);
+}
+
+export async function getTrendData(
+  range: DateRangeInput = "today",
+  user?: User | null,
+  scope?: ReportScope
+) {
+  return calculateTrendData(await getAnalyticsData(range), range, user, scope);
+}
+
+export async function getFunnelAnalytics(
+  range: DateRangeInput = "today",
+  user?: User | null,
+  scope?: ReportScope
+) {
+  return calculateFunnelAnalytics(await getAnalyticsData(range), range, user, scope);
+}
+
+export async function getLeadQualityAnalytics(
+  range: DateRangeInput = "today",
+  user?: User | null,
+  scope?: ReportScope
+) {
+  return calculateLeadQualityAnalytics(await getAnalyticsData(range), range, user, scope);
+}
+
+export async function getManagerAnalytics(range: DateRangeInput = "today", scope?: ReportScope) {
+  return calculateManagerAnalytics(await getAnalyticsData(range), range, scope);
+}
+
+export async function getGeneratedAlerts(
+  range: DateRangeInput = "today",
+  user?: User | null,
+  scope?: ReportScope
+) {
+  return calculateGeneratedAlerts(await getAnalyticsData(range), range, user, scope);
+}
+
+export async function getDashboardOverview(
+  range: DateRangeInput = "today",
+  user?: User | null,
+  scope?: ReportScope
+) {
+  return calculateDashboardOverview(await getAnalyticsData(range), range, user, scope);
 }

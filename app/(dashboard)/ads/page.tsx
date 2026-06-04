@@ -12,8 +12,10 @@ export default async function AdsPage({ searchParams }: { searchParams?: PageSea
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
   const user = await getCurrentUser();
-  const overview = getDashboardOverview(range, user, { facebookAccountId: accountId });
-  const campaigns = getCampaignPerformance(range, user, { facebookAccountId: accountId });
+  const [overview, campaigns] = await Promise.all([
+    getDashboardOverview(range, user, { facebookAccountId: accountId }),
+    getCampaignPerformance(range, user, { facebookAccountId: accountId })
+  ]);
   const roasMetric = overview.metrics.find((metric) => metric.key === "roas");
   const spendNoLead = campaigns.filter((campaign) => campaign.spend > 100 && campaign.leads === 0);
   const cheapLowQuality = campaigns.filter(

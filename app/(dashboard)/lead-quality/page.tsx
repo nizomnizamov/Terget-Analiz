@@ -19,7 +19,7 @@ export default async function LeadQualityPage({ searchParams }: { searchParams?:
   const range = await getPageRange(searchParams);
   const accountId = await getPageAccountId(searchParams);
   const user = await getCurrentUser();
-  const quality = getLeadQualityAnalytics(range, user, { facebookAccountId: accountId });
+  const quality = await getLeadQualityAnalytics(range, user, { facebookAccountId: accountId });
 
   return (
     <div className="grid gap-6">

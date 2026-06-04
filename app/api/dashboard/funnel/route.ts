@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getRangeFromRequest, getReportScopeFromRequest, withApiAuth } from "@/lib/api";
 import { getFunnelAnalytics } from "@/lib/analytics";
 
-export const GET = withApiAuth((request: NextRequest, user) => {
+export const GET = withApiAuth(async (request: NextRequest, user) => {
   return NextResponse.json({
-    funnel: getFunnelAnalytics(getRangeFromRequest(request), user, getReportScopeFromRequest(request))
+    funnel: await getFunnelAnalytics(getRangeFromRequest(request), user, getReportScopeFromRequest(request))
   });
 });

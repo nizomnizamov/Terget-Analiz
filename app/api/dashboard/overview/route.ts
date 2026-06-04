@@ -2,6 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getRangeFromRequest, getReportScopeFromRequest, withApiAuth } from "@/lib/api";
 import { getDashboardOverview } from "@/lib/analytics";
 
-export const GET = withApiAuth((request: NextRequest, user) => {
-  return NextResponse.json(getDashboardOverview(getRangeFromRequest(request), user, getReportScopeFromRequest(request)));
+export const GET = withApiAuth(async (request: NextRequest, user) => {
+  return NextResponse.json(await getDashboardOverview(getRangeFromRequest(request), user, getReportScopeFromRequest(request)));
 });
