@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: targel-analiz-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: targel
+      POSTGRES_PASSWORD: targel_dev_password
+      POSTGRES_DB: targel_analiz
+    ports:
+      - "5433:5432"
+    volumes:
+      - targel_analiz_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U targel -d targel_analiz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  targel_analiz_postgres_data:

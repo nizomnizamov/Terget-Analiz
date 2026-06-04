@@ -40,7 +40,7 @@ async function SettingsContent({
   const facebookAccount = summary.facebookAccounts[0];
   const amoAccount = summary.amoAccounts[0];
   const readinessItems = [
-    { label: "Admin email", ready: Boolean(process.env.APP_ADMIN_EMAIL) },
+    { label: "Admin login", ready: Boolean(process.env.APP_ADMIN_LOGIN ?? process.env.APP_ADMIN_EMAIL) },
     { label: "Admin parol", ready: Boolean(process.env.APP_ADMIN_PASSWORD) },
     { label: "Ma'lumotlar bazasi", ready: summary.databaseReady },
     { label: "Kirish xavfsizligi", ready: Boolean(process.env.NEXTAUTH_SECRET) },
@@ -121,7 +121,6 @@ async function SettingsContent({
         <CardContent>
           <SettingsConnectionsForm
             databaseReady={summary.databaseReady}
-            facebookAccountName={facebookAccount?.accountName}
             facebookAdAccountId={facebookAccount?.adAccountId}
             amoSubdomain={amoAccount?.subdomain}
             telegramChatIds={summary.telegram.chatIds}

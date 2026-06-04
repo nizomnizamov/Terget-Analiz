@@ -4,7 +4,7 @@ import { withApiErrorHandling } from "@/lib/api";
 import { authenticate, setSession } from "@/lib/auth";
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  login: z.string().min(1),
   password: z.string().min(1)
 });
 
@@ -20,13 +20,13 @@ export const POST = withApiErrorHandling(async (request) => {
   const body = loginSchema.safeParse(payload);
 
   if (!body.success) {
-    return NextResponse.json({ error: "Email yoki parol noto'g'ri formatda." }, { status: 400 });
+    return NextResponse.json({ error: "Login yoki parol noto'g'ri formatda." }, { status: 400 });
   }
 
-  const user = authenticate(body.data.email, body.data.password);
+  const user = authenticate(body.data.login, body.data.password);
 
   if (!user) {
-    return NextResponse.json({ error: "Email yoki parol noto'g'ri." }, { status: 401 });
+    return NextResponse.json({ error: "Login yoki parol noto'g'ri." }, { status: 401 });
   }
 
   await setSession(user);

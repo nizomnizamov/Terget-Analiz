@@ -2,13 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LockKeyhole, Mail } from "lucide-react";
+import { LockKeyhole, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,12 +22,12 @@ export function LoginForm() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ login, password })
       });
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        setError(body?.error ?? "Email yoki parolni tekshiring.");
+        setError(body?.error ?? "Login yoki parolni tekshiring.");
         return;
       }
 
@@ -43,15 +43,15 @@ export function LoginForm() {
   return (
     <form onSubmit={submit} className="grid gap-4">
       <label className="grid gap-2 text-sm font-medium">
-        Email
+        Login
         <div className="relative">
-          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            autoComplete="email"
+            type="text"
+            value={login}
+            onChange={(event) => setLogin(event.target.value)}
+            autoComplete="username"
           />
         </div>
       </label>

@@ -259,6 +259,65 @@ export async function getTelegramChatIds() {
   }
 }
 
+export async function saveTelegramChatId(chatId: string) {
+  const prisma = getPrisma();
+  const cleanChatId = clean(chatId);
+
+  if (!prisma || !cleanChatId) {
+    return false;
+  }
+
+  await ensureAdminUser(prisma);
+
+  const existing = await prisma.telegramSubscriber.findFirst({
+    where: {
+      chatId: cleanChatId
+    }
+  });
+
+  if (existing) {
+    await prisma.telegramSubscriber.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        userId: adminUserId,
+        isActive: true
+      }
+    });
+  } else {
+    await prisma.telegramSubscriber.create({
+      data: {
+        userId: adminUserId,
+        chatId: cleanChatId,
+        isActive: true
+      }
+    });
+  }
+
+  return true;
+}
+
+export async function deactivateTelegramChatId(chatId: string) {
+  const prisma = getPrisma();
+  const cleanChatId = clean(chatId);
+
+  if (!prisma || !cleanChatId) {
+    return false;
+  }
+
+  await prisma.telegramSubscriber.updateMany({
+    where: {
+      chatId: cleanChatId
+    },
+    data: {
+      isActive: false
+    }
+  });
+
+  return true;
+}
+
 export async function getIntegrationSummary() {
   const [facebookAccounts, amoAccounts, telegramChatIds] = await Promise.all([
     getFacebookAccountProfiles(),
@@ -297,7 +356,7 @@ async function ensurePrimaryClient(prisma: NonNullable<ReturnType<typeof getPris
 }
 
 async function ensureAdminUser(prisma: NonNullable<ReturnType<typeof getPrisma>>) {
-  const email = clean(process.env.APP_ADMIN_EMAIL) || "admin@targel.uz";
+  const login = clean(process.env.APP_ADMIN_LOGIN) || clean(process.env.APP_ADMIN_EMAIL) || "admin";
 
   await prisma.user.upsert({
     where: {
@@ -306,13 +365,13 @@ async function ensureAdminUser(prisma: NonNullable<ReturnType<typeof getPrisma>>
     create: {
       id: adminUserId,
       name: process.env.APP_ADMIN_NAME ?? "Administrator",
-      email,
+      email: login,
       passwordHash: "env-managed-admin",
       role: "admin"
     },
     update: {
       name: process.env.APP_ADMIN_NAME ?? "Administrator",
-      email
+      email: login
     }
   });
 }
@@ -406,7 +465,7 @@ export async function saveIntegrationSettings(input: SaveIntegrationInput) {
 
   const telegramChatIds = clean(input.telegramChatIds);
 
-  if (telegramChatIds) {
+  if (typeof input.telegramChatIds === "string") {
     await ensureAdminUser(prisma);
     const chatIds = telegramChatIds
       .split(",")

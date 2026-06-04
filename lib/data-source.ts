@@ -130,14 +130,24 @@ function buildSales(leads: AmoLead[], pipelines: AmoPipeline[]): Sale[] {
     }));
 }
 
+async function loadOrEmpty<T>(label: string, loader: () => Promise<T[]>) {
+  try {
+    return await loader();
+  } catch (error) {
+    console.warn(`[analytics] ${label} ma'lumotlarini olib bo'lmadi`, error);
+
+    return [];
+  }
+}
+
 export async function getAnalyticsData(range: DateRangeInput = "today"): Promise<AnalyticsData> {
   const [facebookAccounts, facebookCampaigns, facebookDailyStats, amoPipelines, amoLeads] =
     await Promise.all([
-      getFacebookAccounts(),
-      getFacebookCampaigns(),
-      getFacebookStats(range),
-      getAmoPipelines(),
-      getAmoLeads(range)
+      loadOrEmpty("Meta Ads akkaunt", getFacebookAccounts),
+      loadOrEmpty("Meta Ads reklama", getFacebookCampaigns),
+      loadOrEmpty("Meta Ads statistika", () => getFacebookStats(range)),
+      loadOrEmpty("amoCRM varonka", getAmoPipelines),
+      loadOrEmpty("amoCRM lid", () => getAmoLeads(range))
     ]);
   const leadQualityScores = buildLeadQualityScores(amoLeads, amoPipelines);
   const leadMatches = buildLeadMatches(amoLeads, facebookCampaigns);

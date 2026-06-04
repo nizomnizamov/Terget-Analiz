@@ -66,12 +66,12 @@ function decodeSession(value?: string) {
   }
 }
 
-export function authenticate(email: string, password: string) {
-  if (!adminCredentials.email || !adminCredentials.password) {
+export function authenticate(login: string, password: string) {
+  if (!adminCredentials.login || !adminCredentials.password) {
     return null;
   }
 
-  if (email.toLowerCase() !== adminCredentials.email.toLowerCase() || password !== adminCredentials.password) {
+  if (login.toLowerCase() !== adminCredentials.login.toLowerCase() || password !== adminCredentials.password) {
     return null;
   }
 

@@ -1,6 +1,6 @@
 import { getDashboardOverview } from "@/lib/analytics";
 import { getDateRange, type DateRangeInput } from "@/lib/date-range";
-import { getTelegramChatIds } from "@/lib/integration-settings";
+import { deactivateTelegramChatId, getTelegramChatIds } from "@/lib/integration-settings";
 
 export type TelegramReportPeriod = "daily" | "weekly" | "monthly";
 const configuredTelegramTimeoutMs = Number(process.env.TELEGRAM_TIMEOUT_MS ?? 10_000);
@@ -111,6 +111,19 @@ export async function sendTelegramMessage(message: string, chatIds?: string[]) {
         clearTimeout(timeout);
       }
     })
+  );
+
+  await Promise.all(
+    results
+      .filter((result) => {
+        const description =
+          typeof result.body === "object" && result.body && "description" in result.body
+            ? String(result.body.description)
+            : "";
+
+        return result.status === 400 && description.toLowerCase().includes("chat not found");
+      })
+      .map((result) => deactivateTelegramChatId(result.chatId))
   );
 
   return {

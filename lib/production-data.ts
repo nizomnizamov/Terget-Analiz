@@ -36,18 +36,18 @@ export const client: Client = {
 };
 
 export const adminCredentials = {
-  email: process.env.APP_ADMIN_EMAIL ?? process.env.ADMIN_EMAIL ?? "",
+  login: process.env.APP_ADMIN_LOGIN ?? process.env.APP_ADMIN_EMAIL ?? process.env.ADMIN_EMAIL ?? "",
   password: process.env.APP_ADMIN_PASSWORD ?? process.env.ADMIN_PASSWORD ?? "",
   name: process.env.APP_ADMIN_NAME ?? "Administrator"
 };
 
 export const users: User[] =
-  adminCredentials.email && adminCredentials.password
+  adminCredentials.login && adminCredentials.password
     ? [
         {
           id: "user_admin",
           name: adminCredentials.name,
-          email: adminCredentials.email,
+          email: adminCredentials.login,
           role: "admin",
           createdAt,
           updatedAt

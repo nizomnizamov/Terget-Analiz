@@ -1,13 +1,12 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, type ReactNode, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, Save, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type SettingsConnectionsFormProps = {
   databaseReady: boolean;
-  facebookAccountName?: string;
   facebookAdAccountId?: string;
   amoSubdomain?: string;
   telegramChatIds?: string[];
@@ -15,20 +14,21 @@ type SettingsConnectionsFormProps = {
 
 export function SettingsConnectionsForm({
   databaseReady,
-  facebookAccountName,
   facebookAdAccountId,
   amoSubdomain,
   telegramChatIds
 }: SettingsConnectionsFormProps) {
   const [pending, startTransition] = useTransition();
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function save(event: FormEvent<HTMLFormElement>) {
+  function save(event: FormEvent<HTMLFormElement>, section: string) {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
 
+    setActiveSection(section);
     setMessage(null);
     setError(null);
 
@@ -44,6 +44,7 @@ export function SettingsConnectionsForm({
 
       if (!response.ok || body?.error) {
         setError(body?.error ?? "Sozlamani saqlab bo'lmadi.");
+        setActiveSection(null);
         return;
       }
 
@@ -53,8 +54,34 @@ export function SettingsConnectionsForm({
     });
   }
 
+  function Field({
+    label,
+    children
+  }: {
+    label: string;
+    children: ReactNode;
+  }) {
+    return (
+      <label className="grid gap-1.5">
+        <span className="text-sm font-medium">{label}</span>
+        {children}
+      </label>
+    );
+  }
+
+  function SaveButton({ section }: { section: string }) {
+    const isPending = pending && activeSection === section;
+
+    return (
+      <Button type="submit" disabled={pending} className="w-fit">
+        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        Saqlash
+      </Button>
+    );
+  }
+
   return (
-    <form onSubmit={save} className="grid gap-5">
+    <div className="grid gap-5">
       {!databaseReady ? (
         <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -65,49 +92,59 @@ export function SettingsConnectionsForm({
         </div>
       ) : null}
 
-      <section className="grid gap-3">
+      <form onSubmit={(event) => save(event, "facebook")} className="grid gap-3">
         <div>
           <h3 className="text-base font-semibold">Meta Ads</h3>
-          <p className="text-sm text-muted-foreground">Facebook reklama xarajati, lidlar va kampaniyalar shu ulanishdan olinadi.</p>
+          <p className="text-sm text-muted-foreground">
+            CRM ulanmagan bo&apos;lsa ham, reklama xarajati va Meta lidlar shu yerning o&apos;zidan olinadi.
+          </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <Input name="facebookAccountName" defaultValue={facebookAccountName} placeholder="Profil nomi" />
-          <Input name="facebookAdAccountId" defaultValue={facebookAdAccountId} placeholder="Ad account ID: act_123 yoki 123" />
-          <Input
-            className="md:col-span-2"
-            name="facebookAccessToken"
-            type="password"
-            autoComplete="off"
-            placeholder="Facebook access token"
-          />
+          <Field label="Reklama akkaunt ID">
+            <Input name="facebookAdAccountId" defaultValue={facebookAdAccountId} placeholder="act_123456789 yoki 123456789" />
+          </Field>
+          <Field label="Facebook token">
+            <Input
+              name="facebookAccessToken"
+              type="password"
+              autoComplete="off"
+              placeholder="Access token"
+            />
+          </Field>
         </div>
-      </section>
+        <SaveButton section="facebook" />
+      </form>
 
-      <section className="grid gap-3 border-t pt-5">
+      <form onSubmit={(event) => save(event, "amo")} className="grid gap-3 border-t pt-5">
         <div>
           <h3 className="text-base font-semibold">amoCRM</h3>
-          <p className="text-sm text-muted-foreground">Lidlar, sifatli lidlar va sotuv varonkasi CRM&apos;dan olinadi.</p>
+          <p className="text-sm text-muted-foreground">
+            CRM keyinroq ulansa ham bo&apos;ladi. Ulanganda sifatli lidlar, varonka va sotuvlar qo&apos;shiladi.
+          </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <Input name="amoSubdomain" defaultValue={amoSubdomain} placeholder="Subdomain: chinargroup" />
-          <Input name="amoAccessToken" type="password" autoComplete="off" placeholder="amoCRM access token" />
-          <Input className="md:col-span-2" name="amoRefreshToken" type="password" autoComplete="off" placeholder="amoCRM refresh token" />
+          <Field label="CRM subdomain">
+            <Input name="amoSubdomain" defaultValue={amoSubdomain} placeholder="Masalan: chinargroup" />
+          </Field>
+          <Field label="amoCRM token">
+            <Input name="amoAccessToken" type="password" autoComplete="off" placeholder="Access token" />
+          </Field>
         </div>
-      </section>
+        <SaveButton section="amo" />
+      </form>
 
-      <section className="grid gap-3 border-t pt-5">
+      <form onSubmit={(event) => save(event, "telegram")} className="grid gap-3 border-t pt-5">
         <div>
           <h3 className="text-base font-semibold">Telegram</h3>
-          <p className="text-sm text-muted-foreground">Hisobot boradigan chat ID&apos;lar vergul bilan ajratiladi.</p>
+          <p className="text-sm text-muted-foreground">Hisobot boradigan chat ID ni kiriting.</p>
         </div>
-        <Input name="telegramChatIds" defaultValue={telegramChatIds?.join(", ")} placeholder="Masalan: 123456789, -1001234567890" />
-      </section>
+        <Field label="Telegram chat ID">
+          <Input name="telegramChatIds" defaultValue={telegramChatIds?.join(", ")} placeholder="Masalan: 123456789" />
+        </Field>
+        <SaveButton section="telegram" />
+      </form>
 
       <div className="flex flex-wrap items-center gap-3 border-t pt-5">
-        <Button type="submit" disabled={pending || !databaseReady}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Saqlash
-        </Button>
         {message ? (
           <span className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700">
             <CheckCircle2 className="h-4 w-4" />
@@ -121,6 +158,6 @@ export function SettingsConnectionsForm({
           </span>
         ) : null}
       </div>
-    </form>
+    </div>
   );
 }
