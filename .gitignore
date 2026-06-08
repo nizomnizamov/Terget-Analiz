@@ -8,5 +8,6 @@ coverage/
 prisma/dev.db
 *.log
 backups/
+.npm-cache/
 
 .vercel

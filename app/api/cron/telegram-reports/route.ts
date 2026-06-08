@@ -9,7 +9,7 @@ import {
 } from "@/lib/services/telegram";
 
 const timeZone = "Asia/Tashkent";
-const reportHour = 22;
+const reportHour = 9;
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;

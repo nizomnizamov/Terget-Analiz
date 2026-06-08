@@ -106,7 +106,7 @@ async function SettingsContent({
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
-            <p className="font-medium">Har kuni 22:00 da kunlik hisobot</p>
+            <p className="font-medium">Har kuni 09:00 da kunlik hisobot</p>
             <p className={summary.telegram.chatIds.length ? "font-semibold text-emerald-700" : "text-muted-foreground"}>
               {summary.telegram.chatIds.length ? "Qabul qiluvchi ulangan" : "Chat ID kiritilmagan"}
             </p>
