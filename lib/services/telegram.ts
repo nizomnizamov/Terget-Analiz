@@ -1,5 +1,12 @@
 import { getAnalyticsData } from "@/lib/data-source";
-import { getDateRange, type DateRangeInput } from "@/lib/date-range";
+import {
+  addDays,
+  getDateRange,
+  getTodayDateKey,
+  parseDateKey,
+  toDateKey,
+  type DateRangeInput
+} from "@/lib/date-range";
 import { deactivateTelegramChatId, getTelegramChatIds } from "@/lib/integration-settings";
 import { getFacebookAccountBalance } from "@/lib/services/facebook";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -11,9 +18,9 @@ const telegramTimeoutMs = Number.isFinite(configuredTelegramTimeoutMs)
   : 10_000;
 
 const reportConfig: Record<TelegramReportPeriod, { title: string; range: DateRangeInput }> = {
-  daily: { title: "Kunlik hisobot", range: "today" },
-  weekly: { title: "Haftalik hisobot", range: "last7" },
-  monthly: { title: "Oylik hisobot", range: "thisMonth" }
+  daily: { title: "kunlik hisobot", range: "yesterday" },
+  weekly: { title: "haftalik hisobot", range: "last7" },
+  monthly: { title: "oylik hisobot", range: "lastMonth" }
 };
 
 function formatDate(value: string) {
@@ -28,21 +35,44 @@ function formatRange(range: DateRangeInput) {
   return from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`;
 }
 
-export async function buildTelegramReport(period: TelegramReportPeriod, range = reportConfig[period].range) {
+function getPreviousWeekRange(now = new Date()): DateRangeInput {
+  const today = parseDateKey(getTodayDateKey(now));
+  const day = today.getUTCDay();
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  const thisMonday = addDays(today, -daysSinceMonday);
+  const previousMonday = addDays(thisMonday, -7);
+  const previousSunday = addDays(thisMonday, -1);
+
+  return {
+    key: "custom",
+    from: toDateKey(previousMonday),
+    to: toDateKey(previousSunday)
+  };
+}
+
+function getDefaultReportRange(period: TelegramReportPeriod) {
+  return period === "weekly" ? getPreviousWeekRange() : reportConfig[period].range;
+}
+
+export async function buildTelegramReport(period: TelegramReportPeriod, range = getDefaultReportRange(period)) {
+  const config = reportConfig[period];
   const data = await getAnalyticsData(range);
   const balance = await loadFacebookBalance();
   const spend = data.facebookDailyStats.reduce((total, stat) => total + stat.spend, 0);
   const impressions = data.facebookDailyStats.reduce((total, stat) => total + stat.impressions, 0);
   const leads = data.facebookDailyStats.reduce((total, stat) => total + stat.leads, 0);
+  const sales = data.sales.length;
   const activeCampaigns = data.facebookCampaigns.filter((campaign) => campaign.status === "ACTIVE").length;
   const currency = data.client.currency ?? "USD";
 
   return [
-    `Sana: ${formatRange(range)}`,
-    `Sarflangan reklama byudjeti: ${formatCurrency(spend, currency)}`,
+    `Astrum ${config.title}`,
+    `Sana oralig'i: ${formatRange(range)}`,
+    `Sarflangan mablag': ${formatCurrency(spend, currency)}`,
     `Ko'rishlar soni: ${formatNumber(impressions)}`,
     `Lidlar soni: ${formatNumber(leads)}`,
-    `Ishlab turgan reklamalar soni: ${formatNumber(activeCampaigns)}`,
+    `Sotuv soni: ${formatNumber(sales)}`,
+    `Ishlayotgan reklamalar soni: ${formatNumber(activeCampaigns)}`,
     `Balansda qolgan pul miqdori: ${
       balance ? formatCurrency(balance.amount, balance.currency) : "Aniqlanmadi"
     }`
@@ -59,15 +89,15 @@ async function loadFacebookBalance() {
   }
 }
 
-export async function buildDailyReport(range: DateRangeInput = "today") {
+export async function buildDailyReport(range: DateRangeInput = "yesterday") {
   return buildTelegramReport("daily", range);
 }
 
-export async function buildWeeklyReport(range: DateRangeInput = "last7") {
+export async function buildWeeklyReport(range: DateRangeInput = getPreviousWeekRange()) {
   return buildTelegramReport("weekly", range);
 }
 
-export async function buildMonthlyReport(range: DateRangeInput = "thisMonth") {
+export async function buildMonthlyReport(range: DateRangeInput = "lastMonth") {
   return buildTelegramReport("monthly", range);
 }
 

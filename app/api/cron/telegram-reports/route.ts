@@ -48,10 +48,6 @@ function localParts(date = new Date()) {
   };
 }
 
-function isLastDayOfMonth(year: number, month: number, day: number) {
-  return day === new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
 function forcedReports(request: NextRequest): TelegramReportPeriod[] | null {
   const force = request.nextUrl.searchParams.get("force");
 
@@ -85,11 +81,11 @@ function dueReports(request: NextRequest): TelegramReportPeriod[] {
 
   const reports: TelegramReportPeriod[] = ["daily"];
 
-  if (now.weekday === "Sun") {
+  if (now.weekday === "Mon") {
     reports.push("weekly");
   }
 
-  if (isLastDayOfMonth(now.year, now.month, now.day)) {
+  if (now.day === 1) {
     reports.push("monthly");
   }
 
