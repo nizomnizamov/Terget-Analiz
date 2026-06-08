@@ -1,6 +1,8 @@
-import { getDashboardOverview } from "@/lib/analytics";
+import { getAnalyticsData } from "@/lib/data-source";
 import { getDateRange, type DateRangeInput } from "@/lib/date-range";
 import { deactivateTelegramChatId, getTelegramChatIds } from "@/lib/integration-settings";
+import { getFacebookAccountBalance } from "@/lib/services/facebook";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 
 export type TelegramReportPeriod = "daily" | "weekly" | "monthly";
 const configuredTelegramTimeoutMs = Number(process.env.TELEGRAM_TIMEOUT_MS ?? 10_000);
@@ -27,17 +29,34 @@ function formatRange(range: DateRangeInput) {
 }
 
 export async function buildTelegramReport(period: TelegramReportPeriod, range = reportConfig[period].range) {
-  const config = reportConfig[period];
-  const overview = await getDashboardOverview(range);
-  const metricValue = (key: string) => overview.metrics.find((item) => item.key === key)?.value ?? "-";
+  const data = await getAnalyticsData(range);
+  const balance = await loadFacebookBalance();
+  const spend = data.facebookDailyStats.reduce((total, stat) => total + stat.spend, 0);
+  const impressions = data.facebookDailyStats.reduce((total, stat) => total + stat.impressions, 0);
+  const leads = data.facebookDailyStats.reduce((total, stat) => total + stat.leads, 0);
+  const activeCampaigns = data.facebookCampaigns.filter((campaign) => campaign.status === "ACTIVE").length;
+  const currency = data.client.currency ?? "USD";
 
   return [
-    `Touristan ${config.title}`,
-    `Muddat: ${formatRange(range)}`,
-    `Xarajat: ${metricValue("spend")}`,
-    `Tushgan lidlar soni: ${metricValue("leads")}`,
-    `Sotuv soni: ${metricValue("sales")}`
+    `Sana: ${formatRange(range)}`,
+    `Sarflangan reklama byudjeti: ${formatCurrency(spend, currency)}`,
+    `Ko'rishlar soni: ${formatNumber(impressions)}`,
+    `Lidlar soni: ${formatNumber(leads)}`,
+    `Ishlab turgan reklamalar soni: ${formatNumber(activeCampaigns)}`,
+    `Balansda qolgan pul miqdori: ${
+      balance ? formatCurrency(balance.amount, balance.currency) : "Aniqlanmadi"
+    }`
   ].join("\n");
+}
+
+async function loadFacebookBalance() {
+  try {
+    return await getFacebookAccountBalance();
+  } catch (error) {
+    console.warn("[telegram] Meta Ads balansini olib bo'lmadi", error);
+
+    return null;
+  }
 }
 
 export async function buildDailyReport(range: DateRangeInput = "today") {

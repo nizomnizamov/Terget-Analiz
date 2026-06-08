@@ -45,6 +45,11 @@ type MetaInsight = {
   actions?: MetaAction[];
 };
 
+type MetaAdAccount = {
+  balance?: string;
+  currency?: string;
+};
+
 const graphVersion = process.env.META_GRAPH_VERSION ?? process.env.FACEBOOK_GRAPH_VERSION ?? "v23.0";
 
 function normalizeAdAccountId(value: string) {
@@ -66,19 +71,23 @@ function graphUrl(settings: FacebookCredentials, path: string, params?: Record<s
 
 async function metaGet<T>(settings: FacebookCredentials, path: string, params?: Record<string, string>) {
   const response = await fetch(graphUrl(settings, path, params), { cache: "no-store" });
-  const body = (await response.json().catch(() => null)) as MetaListResponse<T> | null;
+  const body = (await response.json().catch(() => null)) as (T & {
+    error?: {
+      message?: string;
+    };
+  }) | null;
 
   if (!response.ok) {
     throw new Error(body?.error?.message ?? `Meta API xatosi: ${response.status}`);
   }
 
-  return body ?? {};
+  return (body ?? {}) as T;
 }
 
 async function metaList<T>(settings: FacebookCredentials, path: string, params?: Record<string, string>) {
   const items: T[] = [];
   let nextUrl: string | undefined;
-  const firstPage = await metaGet<T>(settings, path, params);
+  const firstPage = await metaGet<MetaListResponse<T>>(settings, path, params);
 
   items.push(...(firstPage.data ?? []));
   nextUrl = firstPage.paging?.next;
@@ -193,6 +202,41 @@ export async function getFacebookCampaigns(): Promise<FacebookCampaign[]> {
     createdAt: now,
     updatedAt: now
   }));
+}
+
+export async function getFacebookAccountBalance() {
+  const configuredBalance = Number(process.env.FACEBOOK_ACCOUNT_BALANCE);
+
+  if (Number.isFinite(configuredBalance)) {
+    return {
+      amount: configuredBalance,
+      currency: process.env.APP_CURRENCY ?? "USD"
+    };
+  }
+
+  const settings = await getFacebookCredentials();
+
+  if (!settings) {
+    return null;
+  }
+
+  const accountId = normalizeAdAccountId(settings.adAccountId);
+  const account = await metaGet<MetaAdAccount>(settings, accountId, {
+    fields: "balance,currency"
+  });
+  const rawBalance = Number(account.balance);
+
+  if (!Number.isFinite(rawBalance)) {
+    return null;
+  }
+
+  const divisor = Number(process.env.FACEBOOK_BALANCE_DIVISOR ?? 100);
+  const safeDivisor = Number.isFinite(divisor) && divisor > 0 ? divisor : 100;
+
+  return {
+    amount: rawBalance / safeDivisor,
+    currency: account.currency ?? process.env.APP_CURRENCY ?? "USD"
+  };
 }
 
 export async function getFacebookStats(range: DateRangeInput = "today", scope?: ReportScope) {
