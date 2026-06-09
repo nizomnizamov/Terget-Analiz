@@ -23,6 +23,7 @@ type MetaCampaign = {
   name?: string;
   objective?: string;
   status?: "ACTIVE" | "PAUSED" | string;
+  effective_status?: "ACTIVE" | "PAUSED" | string;
 };
 
 type MetaAction = {
@@ -107,14 +108,26 @@ async function metaList<T>(settings: FacebookCredentials, path: string, params?:
   return items;
 }
 
-function actionValue(actions: MetaAction[] | undefined, patterns: string[]) {
-  return (actions ?? []).reduce((total, action) => {
-    const type = action.action_type ?? "";
+const leadActionTypes = [
+  "lead",
+  "onsite_conversion.lead_grouped",
+  "offsite_complete_registration_add_meta_leads",
+  "offsite_search_add_meta_leads",
+  "offsite_content_view_add_meta_leads"
+];
 
-    return patterns.some((pattern) => type.includes(pattern))
-      ? total + Number(action.value ?? 0)
-      : total;
-  }, 0);
+function actionValue(actions: MetaAction[] | undefined, actionTypes: string[]) {
+  const byType = new Map((actions ?? []).map((action) => [action.action_type ?? "", Number(action.value ?? 0)]));
+
+  for (const actionType of actionTypes) {
+    const value = byType.get(actionType);
+
+    if (typeof value === "number") {
+      return value;
+    }
+  }
+
+  return 0;
 }
 
 function campaignAccountId(settings?: FacebookCredentials | null) {
@@ -187,7 +200,7 @@ export async function getFacebookCampaigns(): Promise<FacebookCampaign[]> {
 
   const accountId = normalizeAdAccountId(settings.adAccountId);
   const campaigns = await metaList<MetaCampaign>(settings, `${accountId}/campaigns`, {
-    fields: "id,name,objective,status",
+    fields: "id,name,objective,status,effective_status",
     limit: "500"
   });
   const now = new Date().toISOString();
@@ -198,13 +211,13 @@ export async function getFacebookCampaigns(): Promise<FacebookCampaign[]> {
     campaignId: campaign.id,
     campaignName: campaign.name ?? campaign.id,
     objective: campaign.objective ?? "",
-    status: campaign.status === "PAUSED" ? "PAUSED" : "ACTIVE",
+    status: campaign.effective_status === "ACTIVE" ? "ACTIVE" : "PAUSED",
     createdAt: now,
     updatedAt: now
   }));
 }
 
-export async function getFacebookAccountBalance() {
+function configuredFacebookBalance() {
   const configuredBalance = Number(process.env.FACEBOOK_ACCOUNT_BALANCE);
 
   if (Number.isFinite(configuredBalance)) {
@@ -214,10 +227,14 @@ export async function getFacebookAccountBalance() {
     };
   }
 
+  return null;
+}
+
+export async function getFacebookAccountBalance() {
   const settings = await getFacebookCredentials();
 
   if (!settings) {
-    return null;
+    return configuredFacebookBalance();
   }
 
   const accountId = normalizeAdAccountId(settings.adAccountId);
@@ -227,7 +244,7 @@ export async function getFacebookAccountBalance() {
   const rawBalance = Number(account.balance);
 
   if (!Number.isFinite(rawBalance)) {
-    return null;
+    return configuredFacebookBalance();
   }
 
   const divisor = Number(process.env.FACEBOOK_BALANCE_DIVISOR ?? 100);
@@ -257,7 +274,7 @@ export async function getFacebookStats(range: DateRangeInput = "today", scope?: 
     return insights
       .filter(() => !scope?.facebookAccountId || scope.facebookAccountId === campaignAccountId(settings))
       .map<FacebookDailyStat>((item) => {
-        const leads = actionValue(item.actions, ["lead"]);
+        const leads = actionValue(item.actions, leadActionTypes);
         const spend = Number(item.spend ?? 0);
         const clicks = Number(item.clicks ?? 0);
         const impressions = Number(item.impressions ?? 0);
