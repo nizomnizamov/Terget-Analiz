@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api";
+import { checkAndSendBillingLimitAlert } from "@/lib/services/alerts";
 import {
   buildDailyReport,
   buildMonthlyReport,
@@ -122,6 +123,7 @@ async function handle(request: NextRequest) {
     });
   }
 
+  const billingAlert = await checkAndSendBillingLimitAlert();
   const results = await Promise.all(
     reports.map(async (period) => ({
       period,
@@ -130,10 +132,11 @@ async function handle(request: NextRequest) {
   );
 
   return NextResponse.json({
-    ok: results.every((item) => item.result.ok),
+    ok: billingAlert.ok && results.every((item) => item.result.ok),
     sent: true,
     timeZone,
     localTime: `${now.date} ${String(now.hour).padStart(2, "0")}:${String(now.minute).padStart(2, "0")}`,
+    billingAlert,
     reports: results
   });
 }
