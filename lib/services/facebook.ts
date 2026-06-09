@@ -256,6 +256,40 @@ export async function getFacebookAccountBalance() {
   };
 }
 
+export async function getFacebookBillingStatus() {
+  const settings = await getFacebookCredentials();
+  const balance = await getFacebookAccountBalance();
+  const limit = settings?.billingLimit ?? Number(process.env.FACEBOOK_BILLING_LIMIT);
+  const warnBefore = settings?.billingWarnBefore ?? Number(process.env.FACEBOOK_BILLING_WARN_BEFORE ?? 3);
+
+  if (!settings || !balance || !Number.isFinite(limit) || limit <= 0) {
+    return {
+      ok: false,
+      accountName: settings?.accountName ?? "Meta Ads",
+      balance,
+      limit: Number.isFinite(limit) ? limit : null,
+      warnBefore: Number.isFinite(warnBefore) ? warnBefore : null,
+      remaining: null,
+      shouldWarn: false,
+      message: "Meta Ads billing limiti sozlanmagan."
+    };
+  }
+
+  const safeWarnBefore = Number.isFinite(warnBefore) && warnBefore > 0 ? warnBefore : 3;
+  const remaining = Math.max(limit - balance.amount, 0);
+
+  return {
+    ok: true,
+    accountName: settings.accountName,
+    balance,
+    limit,
+    warnBefore: safeWarnBefore,
+    remaining,
+    shouldWarn: remaining <= safeWarnBefore,
+    message: "Meta Ads billing limiti tekshirildi."
+  };
+}
+
 export async function getFacebookStats(range: DateRangeInput = "today", scope?: ReportScope) {
   const settings = await getFacebookCredentials();
 

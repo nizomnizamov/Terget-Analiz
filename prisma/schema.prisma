@@ -66,6 +66,8 @@ model FacebookAccount {
   accountName   String             @map("account_name")
   adAccountId   String             @map("ad_account_id")
   accessToken   String?            @map("access_token")
+  billingLimit      Decimal?           @map("billing_limit") @db.Decimal(12, 2)
+  billingWarnBefore Decimal?           @map("billing_warn_before") @db.Decimal(12, 2)
   status        IntegrationStatus  @default(active)
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")

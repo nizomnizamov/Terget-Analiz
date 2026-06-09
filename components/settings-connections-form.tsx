@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 type SettingsConnectionsFormProps = {
   databaseReady: boolean;
   facebookAdAccountId?: string;
+  facebookBillingLimit?: number;
+  facebookBillingWarnBefore?: number;
   amoSubdomain?: string;
   telegramChatIds?: string[];
 };
@@ -15,6 +17,8 @@ type SettingsConnectionsFormProps = {
 export function SettingsConnectionsForm({
   databaseReady,
   facebookAdAccountId,
+  facebookBillingLimit,
+  facebookBillingWarnBefore,
   amoSubdomain,
   telegramChatIds
 }: SettingsConnectionsFormProps) {
@@ -109,6 +113,28 @@ export function SettingsConnectionsForm({
               type="password"
               autoComplete="off"
               placeholder="Access token"
+            />
+          </Field>
+        </div>
+        <div className="grid gap-3 rounded-md border bg-muted/30 p-3 md:grid-cols-2">
+          <Field label="Viza yechilish limiti">
+            <Input
+              name="facebookBillingLimit"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={facebookBillingLimit ?? ""}
+              placeholder="Masalan: 25"
+            />
+          </Field>
+          <Field label="Qancha qolganda ogohlantirsin">
+            <Input
+              name="facebookBillingWarnBefore"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={facebookBillingWarnBefore ?? ""}
+              placeholder="Masalan: 3"
             />
           </Field>
         </div>

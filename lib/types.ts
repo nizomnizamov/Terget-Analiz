@@ -38,6 +38,8 @@ export type FacebookAccount = {
   amoAccountId?: string;
   accountName: string;
   adAccountId: string;
+  billingLimit?: number;
+  billingWarnBefore?: number;
   status: "active" | "paused" | "error";
   createdAt: string;
   updatedAt: string;

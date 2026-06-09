@@ -7,6 +7,8 @@ const integrationSchema = z.object({
   facebookAccountName: z.string().optional(),
   facebookAdAccountId: z.string().optional(),
   facebookAccessToken: z.string().optional(),
+  facebookBillingLimit: z.string().optional(),
+  facebookBillingWarnBefore: z.string().optional(),
   amoSubdomain: z.string().optional(),
   amoAccessToken: z.string().optional(),
   amoRefreshToken: z.string().optional(),

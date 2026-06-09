@@ -46,6 +46,7 @@ async function SettingsContent({
     { label: "Kirish xavfsizligi", ready: Boolean(process.env.NEXTAUTH_SECRET) },
     { label: "Meta Ads ulanishi", ready: summary.facebookAccounts.length > 0 },
     { label: "Meta Ads akkaunt", ready: Boolean(facebookAccount?.adAccountId) },
+    { label: "Viza ogohlantirish limiti", ready: Boolean(facebookAccount?.billingLimit) },
     { label: "amoCRM ulanishi", ready: summary.amoAccounts.length > 0 },
     { label: "Telegram bot", ready: summary.telegram.hasBotToken },
     { label: "Telegram chat ID", ready: summary.telegram.chatIds.length > 0 },
@@ -122,6 +123,8 @@ async function SettingsContent({
           <SettingsConnectionsForm
             databaseReady={summary.databaseReady}
             facebookAdAccountId={facebookAccount?.adAccountId}
+            facebookBillingLimit={facebookAccount?.billingLimit}
+            facebookBillingWarnBefore={facebookAccount?.billingWarnBefore}
             amoSubdomain={amoAccount?.subdomain}
             telegramChatIds={summary.telegram.chatIds}
           />

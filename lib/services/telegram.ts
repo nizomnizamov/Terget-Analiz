@@ -8,7 +8,6 @@ import {
   type DateRangeInput
 } from "@/lib/date-range";
 import { deactivateTelegramChatId, getTelegramChatIds } from "@/lib/integration-settings";
-import { getFacebookAccountBalance } from "@/lib/services/facebook";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 export type TelegramReportPeriod = "daily" | "weekly" | "monthly";
@@ -57,7 +56,6 @@ function getDefaultReportRange(period: TelegramReportPeriod) {
 export async function buildTelegramReport(period: TelegramReportPeriod, range = getDefaultReportRange(period)) {
   const config = reportConfig[period];
   const data = await getAnalyticsData(range);
-  const balance = await loadFacebookBalance();
   const spend = data.facebookDailyStats.reduce((total, stat) => total + stat.spend, 0);
   const impressions = data.facebookDailyStats.reduce((total, stat) => total + stat.impressions, 0);
   const leads = data.facebookDailyStats.reduce((total, stat) => total + stat.leads, 0);
@@ -72,21 +70,8 @@ export async function buildTelegramReport(period: TelegramReportPeriod, range = 
     `Ko'rishlar soni: ${formatNumber(impressions)}`,
     `Lidlar soni: ${formatNumber(leads)}`,
     `Sotuv soni: ${formatNumber(sales)}`,
-    `Ishlayotgan reklamalar soni: ${formatNumber(activeCampaigns)}`,
-    `Balansda qolgan pul miqdori: ${
-      balance ? formatCurrency(balance.amount, balance.currency) : "Aniqlanmadi"
-    }`
+    `Ishlayotgan reklamalar soni: ${formatNumber(activeCampaigns)}`
   ].join("\n");
-}
-
-async function loadFacebookBalance() {
-  try {
-    return await getFacebookAccountBalance();
-  } catch (error) {
-    console.warn("[telegram] Meta Ads balansini olib bo'lmadi", error);
-
-    return null;
-  }
 }
 
 export async function buildDailyReport(range: DateRangeInput = "yesterday") {

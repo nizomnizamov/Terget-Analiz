@@ -12,6 +12,8 @@ type SaveIntegrationInput = {
   facebookAccountName?: string;
   facebookAdAccountId?: string;
   facebookAccessToken?: string;
+  facebookBillingLimit?: string;
+  facebookBillingWarnBefore?: string;
   amoSubdomain?: string;
   amoAccessToken?: string;
   amoRefreshToken?: string;
@@ -23,6 +25,8 @@ export type FacebookCredentials = {
   accountName: string;
   adAccountId: string;
   accessToken: string;
+  billingLimit?: number;
+  billingWarnBefore?: number;
 };
 
 export type AmoCredentials = {
@@ -35,6 +39,22 @@ export type AmoCredentials = {
 
 function clean(value?: string | null) {
   return value?.trim() ?? "";
+}
+
+function cleanNumber(value?: string | null) {
+  const number = Number(clean(value));
+
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function optionalNumber(value?: Prisma.Decimal | number | string | null) {
+  if (value === null || typeof value === "undefined") {
+    return undefined;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : undefined;
 }
 
 function iso(value: Date | string) {
@@ -53,7 +73,9 @@ function envFacebookCredentials(): FacebookCredentials | null {
     id: primaryFacebookAccountId,
     accountName: clean(process.env.FACEBOOK_ACCOUNT_NAME) || "Meta Ads",
     adAccountId,
-    accessToken
+    accessToken,
+    billingLimit: optionalNumber(process.env.FACEBOOK_BILLING_LIMIT),
+    billingWarnBefore: optionalNumber(process.env.FACEBOOK_BILLING_WARN_BEFORE)
   };
 }
 
@@ -97,7 +119,9 @@ export async function getFacebookCredentials(): Promise<FacebookCredentials | nu
           id: account.id,
           accountName: account.accountName,
           adAccountId: account.adAccountId,
-          accessToken: account.accessToken
+          accessToken: account.accessToken,
+          billingLimit: optionalNumber(account.billingLimit),
+          billingWarnBefore: optionalNumber(account.billingWarnBefore)
         };
       }
     } catch (error) {
@@ -125,6 +149,8 @@ export async function getFacebookAccountProfiles(): Promise<FacebookAccount[]> {
           clientId: account.clientId,
           accountName: account.accountName,
           adAccountId: account.adAccountId,
+          billingLimit: optionalNumber(account.billingLimit),
+          billingWarnBefore: optionalNumber(account.billingWarnBefore),
           status: account.status,
           createdAt: iso(account.createdAt),
           updatedAt: iso(account.updatedAt)
@@ -144,6 +170,8 @@ export async function getFacebookAccountProfiles(): Promise<FacebookAccount[]> {
           clientId: primaryClientId,
           accountName: envAccount.accountName,
           adAccountId: envAccount.adAccountId,
+          billingLimit: envAccount.billingLimit,
+          billingWarnBefore: envAccount.billingWarnBefore,
           status: "active",
           createdAt: client.createdAt,
           updatedAt: client.updatedAt
@@ -391,8 +419,16 @@ export async function saveIntegrationSettings(input: SaveIntegrationInput) {
   const facebookAccountName = clean(input.facebookAccountName);
   const facebookAdAccountId = clean(input.facebookAdAccountId);
   const facebookAccessToken = clean(input.facebookAccessToken);
+  const facebookBillingLimit = cleanNumber(input.facebookBillingLimit);
+  const facebookBillingWarnBefore = cleanNumber(input.facebookBillingWarnBefore);
 
-  if (facebookAccountName || facebookAdAccountId || facebookAccessToken) {
+  if (
+    facebookAccountName ||
+    facebookAdAccountId ||
+    facebookAccessToken ||
+    typeof input.facebookBillingLimit === "string" ||
+    typeof input.facebookBillingWarnBefore === "string"
+  ) {
     const existing = await prisma.facebookAccount.findUnique({
       where: {
         id: primaryFacebookAccountId
@@ -401,7 +437,9 @@ export async function saveIntegrationSettings(input: SaveIntegrationInput) {
     const updateData: Prisma.FacebookAccountUpdateInput = {
       accountName: facebookAccountName || existing?.accountName || "Meta Ads",
       adAccountId: facebookAdAccountId || existing?.adAccountId || "",
-      status: facebookAdAccountId || existing?.adAccountId ? "active" : "error"
+      status: facebookAdAccountId || existing?.adAccountId ? "active" : "error",
+      billingLimit: facebookBillingLimit,
+      billingWarnBefore: facebookBillingWarnBefore
     };
 
     if (facebookAccessToken) {
@@ -418,6 +456,8 @@ export async function saveIntegrationSettings(input: SaveIntegrationInput) {
         accountName: facebookAccountName || "Meta Ads",
         adAccountId: facebookAdAccountId,
         accessToken: facebookAccessToken || null,
+        billingLimit: facebookBillingLimit,
+        billingWarnBefore: facebookBillingWarnBefore,
         status: facebookAdAccountId && facebookAccessToken ? "active" : "error"
       },
       update: updateData
