@@ -60,7 +60,6 @@ export async function buildTelegramReport(period: TelegramReportPeriod, range = 
   const impressions = data.facebookDailyStats.reduce((total, stat) => total + stat.impressions, 0);
   const leads = data.facebookDailyStats.reduce((total, stat) => total + stat.leads, 0);
   const sales = data.sales.length;
-  const activeCampaigns = data.facebookCampaigns.filter((campaign) => campaign.status === "ACTIVE").length;
   const currency = data.client.currency ?? "USD";
 
   return [
@@ -69,8 +68,7 @@ export async function buildTelegramReport(period: TelegramReportPeriod, range = 
     `Sarflangan mablag': ${formatCurrency(spend, currency)}`,
     `Ko'rishlar soni: ${formatNumber(impressions)}`,
     `Lidlar soni: ${formatNumber(leads)}`,
-    `Sotuv soni: ${formatNumber(sales)}`,
-    `Ishlayotgan reklamalar soni: ${formatNumber(activeCampaigns)}`
+    `Sotuv soni: ${formatNumber(sales)}`
   ].join("\n");
 }
 
