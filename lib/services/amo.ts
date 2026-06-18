@@ -1,6 +1,11 @@
 import { amoAccounts, amoLeads, amoPipelines } from "@/lib/production-data";
 import { getDateRange, isWithinDateRange, type DateRangeInput } from "@/lib/date-range";
-import { getAmoAccountProfiles, getAmoCredentials, type AmoCredentials } from "@/lib/integration-settings";
+import {
+  getAmoAccountProfiles,
+  getAmoCredentials,
+  refreshAmoCredentials,
+  type AmoCredentials
+} from "@/lib/integration-settings";
 import type { AmoLead, AmoPipeline, AmoStatus } from "@/lib/types";
 
 type AmoListResponse<T> = {
@@ -57,6 +62,12 @@ type AmoLeadRaw = {
   };
 };
 
+type AmoUserRaw = {
+  id: number;
+  name?: string;
+  email?: string;
+};
+
 function amoUrl(settings: AmoCredentials, path: string, params?: Record<string, string>) {
   const url = new URL(`${settings.baseUrl}${path}`);
 
@@ -69,7 +80,37 @@ function amoUrl(settings: AmoCredentials, path: string, params?: Record<string, 
   return url;
 }
 
-async function amoGet<T>(settings: AmoCredentials, path: string, params?: Record<string, string>) {
+function amoErrorMessage(status: number, body?: AmoListResponse<unknown> | null) {
+  if (status === 401) {
+    return "amoCRM token muddati tugagan yoki bekor qilingan.";
+  }
+
+  if (status === 403) {
+    return "amoCRM API so'rovlarni blokladi. Odatda bu IP cheklov, token ruxsati yoki ko'p takroriy so'rov sabab bo'ladi.";
+  }
+
+  if (status === 429) {
+    return "amoCRM API limiti oshib ketdi. So'rovlarni sekinlashtirish kerak.";
+  }
+
+  return body?.detail ?? body?.title ?? `amoCRM API xatosi: ${status}`;
+}
+
+async function refreshSettings(settings: AmoCredentials) {
+  const refreshed = await refreshAmoCredentials(settings);
+
+  settings.accessToken = refreshed.accessToken;
+  settings.refreshToken = refreshed.refreshToken;
+
+  return settings;
+}
+
+async function amoGet<T>(
+  settings: AmoCredentials,
+  path: string,
+  params?: Record<string, string>,
+  retried = false
+) {
   const response = await fetch(amoUrl(settings, path, params), {
     cache: "no-store",
     headers: {
@@ -79,8 +120,14 @@ async function amoGet<T>(settings: AmoCredentials, path: string, params?: Record
   });
   const body = (await response.json().catch(() => null)) as AmoListResponse<T> | null;
 
+  if (response.status === 401 && !retried && settings.refreshToken) {
+    await refreshSettings(settings);
+
+    return amoGet<T>(settings, path, params, true);
+  }
+
   if (!response.ok) {
-    throw new Error(body?.detail ?? body?.title ?? `amoCRM API xatosi: ${response.status}`);
+    throw new Error(amoErrorMessage(response.status, body));
   }
 
   return body ?? {};
@@ -98,6 +145,7 @@ async function amoList<T>(
 
   items.push(...(firstPage._embedded?.[embeddedKey] ?? []));
   nextUrl = firstPage._links?.next?.href;
+  const retriedPageUrls = new Set<string>();
 
   while (nextUrl) {
     const response = await fetch(nextUrl, {
@@ -109,8 +157,15 @@ async function amoList<T>(
     });
     const body = (await response.json().catch(() => null)) as AmoListResponse<T> | null;
 
+    if (response.status === 401 && settings.refreshToken && !retriedPageUrls.has(nextUrl)) {
+      retriedPageUrls.add(nextUrl);
+      await refreshSettings(settings);
+
+      continue;
+    }
+
     if (!response.ok) {
-      throw new Error(body?.detail ?? body?.title ?? `amoCRM paging xatosi: ${response.status}`);
+      throw new Error(amoErrorMessage(response.status, body));
     }
 
     items.push(...(body?._embedded?.[embeddedKey] ?? []));
@@ -160,7 +215,12 @@ function customValue(fields: AmoCustomFieldValue[] | null | undefined, keys: str
   return String(field?.values?.[0]?.value ?? "");
 }
 
-function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[], settings?: AmoCredentials | null): AmoLead {
+function mapLead(
+  lead: AmoLeadRaw,
+  pipelines: AmoPipeline[],
+  usersById: Map<string, AmoUserRaw>,
+  settings?: AmoCredentials | null
+): AmoLead {
   const pipeline = pipelines.find((item) => item.id === String(lead.pipeline_id));
   const status = pipeline?.statuses.find((item) => item.id === String(lead.status_id));
   const contact = lead._embedded?.contacts?.[0];
@@ -168,6 +228,8 @@ function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[], settings?: AmoCrede
   const createdAt = lead.created_at ? new Date(lead.created_at * 1000).toISOString() : new Date().toISOString();
   const updatedAt = lead.updated_at ? new Date(lead.updated_at * 1000).toISOString() : createdAt;
   const source = customValue(fields, ["utm_source", "source", "manba"]).toLowerCase();
+  const responsibleUserId = String(lead.responsible_user_id ?? "");
+  const responsibleUser = usersById.get(responsibleUserId);
 
   return {
     id: `amo_${lead.id}`,
@@ -178,8 +240,8 @@ function mapLead(lead: AmoLeadRaw, pipelines: AmoPipeline[], settings?: AmoCrede
     statusName: status?.name ?? String(lead.status_id ?? "Noma'lum"),
     pipelineId: String(lead.pipeline_id ?? ""),
     pipelineName: pipeline?.name ?? "",
-    responsibleUserId: String(lead.responsible_user_id ?? ""),
-    responsibleUserName: lead.responsible_user_id ? `Operator ${lead.responsible_user_id}` : "Operator belgilanmagan",
+    responsibleUserId,
+    responsibleUserName: responsibleUser?.name ?? (responsibleUserId ? `Operator ${responsibleUserId}` : "Operator belgilanmagan"),
     price: Number(lead.price ?? 0),
     source: source.includes("instagram") ? "instagram" : source.includes("telegram") ? "telegram" : source.includes("facebook") ? "facebook" : "manual",
     utmSource: customValue(fields, ["utm_source"]),
@@ -232,19 +294,21 @@ export async function syncAmoData() {
     };
   }
 
-  const [pipelines, leads] = await Promise.all([
+  const [pipelines, leads, users] = await Promise.all([
     getAmoPipelines(),
-    getAmoLeads("today")
+    getAmoLeads("today"),
+    getAmoUsers()
   ]);
 
   return {
     ok: true,
     pipelines: pipelines.length,
     leads: leads.length,
+    users: users.length,
     log: {
       status: "success",
       integrationType: "amo",
-      message: `amoCRM API ishladi: ${pipelines.length} ta varonka, ${leads.length} ta bugungi lid olindi.`,
+      message: `amoCRM API ishladi: ${pipelines.length} ta varonka, ${leads.length} ta bugungi lid, ${users.length} ta operator olindi.`,
       startedAt: new Date().toISOString(),
       finishedAt: new Date().toISOString()
     }
@@ -256,15 +320,19 @@ export async function getAmoLeads(range: DateRangeInput = "today") {
 
   if (settings) {
     const { from, to } = getDateRange(range);
-    const pipelines = await getAmoPipelines();
-    const leads = await amoList<AmoLeadRaw>(settings, "/api/v4/leads", "leads", {
-      "filter[created_at][from]": String(Math.floor(new Date(`${from}T00:00:00.000Z`).getTime() / 1000)),
-      "filter[created_at][to]": String(Math.floor(new Date(`${to}T23:59:59.000Z`).getTime() / 1000)),
-      with: "contacts",
-      limit: "250"
-    });
+    const [pipelines, users, leads] = await Promise.all([
+      getAmoPipelines(),
+      getAmoUsers(settings),
+      amoList<AmoLeadRaw>(settings, "/api/v4/leads", "leads", {
+        "filter[created_at][from]": String(Math.floor(new Date(`${from}T00:00:00.000Z`).getTime() / 1000)),
+        "filter[created_at][to]": String(Math.floor(new Date(`${to}T23:59:59.000Z`).getTime() / 1000)),
+        with: "contacts",
+        limit: "250"
+      })
+    ]);
+    const usersById = new Map(users.map((user) => [String(user.id), user]));
 
-    return leads.map((lead) => mapLead(lead, pipelines, settings));
+    return leads.map((lead) => mapLead(lead, pipelines, usersById, settings));
   }
 
   const { from, to } = getDateRange(range);
@@ -289,6 +357,24 @@ export async function getAmoPipelines() {
       statuses: [...pipeline.statuses].sort((a, b) => a.sort - b.sort)
     }))
     .sort((a, b) => a.sort - b.sort);
+}
+
+export async function getAmoUsers(settingsInput?: AmoCredentials | null) {
+  const settings = settingsInput ?? (await getAmoCredentials());
+
+  if (!settings) {
+    return [];
+  }
+
+  try {
+    return await amoList<AmoUserRaw>(settings, "/api/v4/users", "users", {
+      limit: "250"
+    });
+  } catch (error) {
+    console.warn("[amo] Operatorlarni olib bo'lmadi", error);
+
+    return [];
+  }
 }
 
 export async function getAmoStatuses() {

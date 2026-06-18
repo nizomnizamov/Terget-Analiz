@@ -48,6 +48,10 @@ async function SettingsContent({
     { label: "Meta Ads akkaunt", ready: Boolean(facebookAccount?.adAccountId) },
     { label: "Viza ogohlantirish limiti", ready: Boolean(facebookAccount?.billingLimit) },
     { label: "amoCRM ulanishi", ready: summary.amoAccounts.length > 0 },
+    {
+      label: "amoCRM token yangilash",
+      ready: Boolean(process.env.AMO_CLIENT_ID && process.env.AMO_CLIENT_SECRET && process.env.AMO_REDIRECT_URI)
+    },
     { label: "Telegram bot", ready: summary.telegram.hasBotToken },
     { label: "Telegram chat ID", ready: summary.telegram.chatIds.length > 0 },
     { label: "Avtomatik hisobot", ready: Boolean(process.env.CRON_SECRET) }

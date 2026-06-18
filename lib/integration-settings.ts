@@ -37,6 +37,16 @@ export type AmoCredentials = {
   refreshToken?: string;
 };
 
+type AmoTokenResponse = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+  title?: string;
+  detail?: string;
+  hint?: string;
+};
+
 function clean(value?: string | null) {
   return value?.trim() ?? "";
 }
@@ -212,6 +222,88 @@ export async function getAmoCredentials(): Promise<AmoCredentials | null> {
   }
 
   return envAmoCredentials();
+}
+
+export async function refreshAmoCredentials(current?: AmoCredentials | null): Promise<AmoCredentials> {
+  const credentials = current ?? (await getAmoCredentials());
+  const clientId = clean(process.env.AMO_CLIENT_ID);
+  const clientSecret = clean(process.env.AMO_CLIENT_SECRET);
+  const redirectUri = clean(process.env.AMO_REDIRECT_URI);
+
+  if (!credentials?.refreshToken) {
+    throw new Error("amoCRM refresh token topilmadi. Integratsiyani qayta ulang.");
+  }
+
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error("amoCRM tokenini yangilash uchun AMO_CLIENT_ID, AMO_CLIENT_SECRET va AMO_REDIRECT_URI kerak.");
+  }
+
+  const response = await fetch(`${credentials.baseUrl}/oauth2/access_token`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: credentials.refreshToken,
+      redirect_uri: redirectUri
+    })
+  });
+  const body = (await response.json().catch(() => null)) as AmoTokenResponse | null;
+
+  if (!response.ok) {
+    throw new Error(body?.detail ?? body?.title ?? body?.hint ?? `amoCRM tokenini yangilab bo'lmadi: ${response.status}`);
+  }
+
+  const accessToken = clean(body?.access_token);
+  const refreshToken = clean(body?.refresh_token);
+
+  if (!accessToken || !refreshToken) {
+    throw new Error("amoCRM token yangilash javobida access_token yoki refresh_token kelmadi.");
+  }
+
+  const expiresAt =
+    typeof body?.expires_in === "number" && body.expires_in > 0
+      ? new Date(Date.now() + body.expires_in * 1000)
+      : null;
+  const prisma = getPrisma();
+
+  if (prisma) {
+    await ensurePrimaryClient(prisma);
+    await prisma.amoAccount.upsert({
+      where: {
+        id: credentials.id
+      },
+      create: {
+        id: credentials.id,
+        clientId: primaryClientId,
+        subdomain: credentials.subdomain,
+        accessToken,
+        refreshToken,
+        expiresAt,
+        status: "active"
+      },
+      update: {
+        accessToken,
+        refreshToken,
+        expiresAt,
+        status: "active"
+      }
+    });
+  } else {
+    process.env.AMO_ACCESS_TOKEN = accessToken;
+    process.env.AMO_REFRESH_TOKEN = refreshToken;
+  }
+
+  return {
+    ...credentials,
+    accessToken,
+    refreshToken
+  };
 }
 
 export async function getAmoAccountProfiles(): Promise<AmoAccount[]> {

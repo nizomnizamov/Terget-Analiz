@@ -143,8 +143,11 @@ amoCRM:
 
 - `AMO_SUBDOMAIN` CRM subdomain, masalan `chinargroup`.
 - `AMO_ACCESS_TOKEN` amoCRM API access token.
+- `AMO_REFRESH_TOKEN` access token tugaganda avtomatik yangilash uchun kerak.
+- `AMO_CLIENT_ID`, `AMO_CLIENT_SECRET` va `AMO_REDIRECT_URI` refresh token oqimi uchun kerak.
 - `AMO_BASE_URL` ixtiyoriy, masalan `https://chinargroup.amocrm.ru`.
 - Dashboard `/api/v4/leads/pipelines` orqali varonka/statuslarni, `/api/v4/leads` orqali lidlarni oladi.
+- Operator nomlari `/api/v4/users` orqali olinadi. Agar bu endpointga ruxsat bo'lmasa dashboard ID fallback bilan ishlaydi.
 
 Telegram:
 

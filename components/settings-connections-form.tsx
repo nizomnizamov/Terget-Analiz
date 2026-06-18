@@ -155,6 +155,9 @@ export function SettingsConnectionsForm({
           <Field label="amoCRM token">
             <Input name="amoAccessToken" type="password" autoComplete="off" placeholder="Access token" />
           </Field>
+          <Field label="amoCRM refresh token">
+            <Input name="amoRefreshToken" type="password" autoComplete="off" placeholder="Refresh token" />
+          </Field>
         </div>
         <SaveButton section="amo" />
       </form>
