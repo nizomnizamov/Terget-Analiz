@@ -85,6 +85,10 @@ function amoErrorMessage(status: number, body?: AmoListResponse<unknown> | null)
     return "amoCRM token muddati tugagan yoki bekor qilingan.";
   }
 
+  if (status === 402) {
+    return "amoCRM account tarifi yoki trial muddati tugagan. API ma'lumot bermaydi; tarifni aktiv qiling va keyin ulanishni qayta tekshiring.";
+  }
+
   if (status === 403) {
     return "amoCRM API so'rovlarni blokladi. Odatda bu IP cheklov, token ruxsati yoki ko'p takroriy so'rov sabab bo'ladi.";
   }
